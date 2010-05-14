@@ -1,0 +1,4 @@
+LIBRARY	"ConScribe"
+EXPORTS
+OBSEPlugin_Query
+OBSEPlugin_Load
