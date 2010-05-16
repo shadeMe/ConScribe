@@ -29,8 +29,8 @@ static __declspec(naked) void ConsolePrintHook(void)
 		mov		g_HookMessage, ecx
 	}
 
-	g_ConsoleLog->WriteOutput(g_HookMessage);		// much stack abuse? wonder if it's advisable to move this inside the wrapper
-
+	g_ConsoleLog->WriteOutput(g_HookMessage);		// much stack abuse? wonder if it's advisable to move this inside the asm wrapper
+													// or a __stdcall wrapper
 	__asm
 	{
 		popad

@@ -367,7 +367,7 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 {																			//		CSMN - mod name. starting record	(string)
 	_MESSAGE("\nLoadGame callback! Reading records ...\n");					//		CSRL - registered log				(string)
 	PurgeDatabase();														//		CSDI - default log index			(signed int)					
-																			//		CSEC - end of chunk. final record	(null)
+																			//		CSEC - end of chunk. final record	(signed int/null)
 	UInt32	Type, Version, Length;											// records are expected in the same order :
 	char Buffer[0x200], ModName[0x200];										//		CSMN, CSRL(N)..., CSDI, CSEC, ...
 	int Idx;
@@ -406,7 +406,7 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 					SetDefaultLog(ModName, Idx); 
 					break;
 				default:
-					_MESSAGE("Error encountered while loading data from cosave - Unexpected type %.4s", Type);
+					_MESSAGE("Error encountered while loading data from cosave - Unexpected type %.4s", &Type);
 					break;
 				}
 				Interface->GetNextRecordInfo(&Type, &Version, &Length);
@@ -524,7 +524,7 @@ void LogWinAPIErrorMessage(DWORD ErrorID)
 bool CreateLogDirectories()
 {
 	std::string LogDirectory = GET_INI("RootDirectory")->GetValueAsString();
-	if (LogDirectory[LogDirectory.length() - 1] != '\\')	LogDirectory += "\\";			// append leading forward slash when not found
+	if (LogDirectory[LogDirectory.length() - 1] != '\\')	LogDirectory += "\\";			// append leading backward slash when not found
 
 	if ((CreateDirectory((LogDirectory + "ConScribe Logs").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
 		(CreateDirectory((LogDirectory + "ConScribe Logs\\Per-Script").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
