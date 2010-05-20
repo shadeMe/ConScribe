@@ -316,7 +316,7 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 	}
 }
 
-void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID)
+void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, bool PrintC)
 {
 	if (!IsModRegistered(ModName))		return;
 
@@ -335,6 +335,13 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 	else if (!_stricmp(LogName.c_str(), "Script"))			ScribeOperation = e_Script;
 	else if (!IsLogRegistered(ModName, LogName.c_str()))	return;
 	else													ScribeOperation = e_Mod;
+
+	if (PrintC) {
+		if (MessageBuffer.length() < 512)
+			Console_Print(MessageBuffer.c_str());
+		else
+			Console_Print_Long(MessageBuffer.c_str());
+	}
 
 	switch(ScribeOperation)
 	{

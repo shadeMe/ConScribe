@@ -198,8 +198,6 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 	}
 
 
-
-
 	obse->SetOpcodeBase(0x25A0);													// 25A0h - 25AFh
 	obse->RegisterCommand(&kCommandInfo_Scribe);
 	obse->RegisterCommand(&kCommandInfo_RegisterLog);

@@ -5,7 +5,7 @@
 
 static bool Cmd_ConScribe_Scribe_Execute(COMMAND_ARGS)
 {
-	UInt32 PrintC = 0;
+	bool PrintC = 0;
 	const char* ModName = ResolveModName(scriptObj);
 	char Buffer[kMaxMessageLength];
 
@@ -14,7 +14,7 @@ static bool Cmd_ConScribe_Scribe_Execute(COMMAND_ARGS)
 	else if (Buffer == NULL || ModName == NULL)
 		return true;
 
-	LogManager::GetSingleton()->ScribeToLog(Buffer, ModName, scriptObj->refID);
+	LogManager::GetSingleton()->ScribeToLog(Buffer, ModName, scriptObj->refID, PrintC);
 	return true;
 }
 
