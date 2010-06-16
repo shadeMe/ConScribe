@@ -316,7 +316,7 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 	}
 }
 
-void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, bool PrintC)
+void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC)
 {
 	std::string MessageBuffer(Message), LogName, FilePath, FormID;
 	std::string::size_type PipeIdx = MessageBuffer.rfind("|");

@@ -141,7 +141,7 @@ public:
 	const char*											GetDefaultLog(const char* ModName);
 	void												RegisterLog(const char* ModName, const char* LogName);
 	void												UnregisterLog(const char* ModName, const char* LogName);
-	void												ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, bool PrintC);								
+	void												ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC);								
 
 	LogData*											GetModLogData(const char* ModName);
 

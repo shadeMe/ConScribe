@@ -5,7 +5,7 @@
 
 static bool Cmd_ConScribe_Scribe_Execute(COMMAND_ARGS)
 {
-	bool PrintC = 0;
+	UInt32 PrintC = 0;
 	const char* ModName = ResolveModName(scriptObj);
 	char Buffer[kMaxMessageLength];
 
