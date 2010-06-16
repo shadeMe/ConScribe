@@ -318,8 +318,6 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 
 void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, bool PrintC)
 {
-	if (!IsModRegistered(ModName))		return;
-
 	std::string MessageBuffer(Message), LogName, FilePath, FormID;
 	std::string::size_type PipeIdx = MessageBuffer.rfind("|");
 	if (PipeIdx != std::string::npos) {
@@ -347,7 +345,7 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 	{
 	case e_Script:
 		char Buffer[0x10];
-		_sprintf_p(Buffer, sizeof(Buffer), "%08x", RefID);
+		_sprintf_p(Buffer, sizeof(Buffer), "%08X", RefID);
 		FormID = Buffer; FormID.erase(0,2);
 		FilePath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
 		break;

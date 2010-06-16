@@ -29,8 +29,8 @@ static __declspec(naked) void ConsolePrintHook(void)
 		mov		g_HookMessage, ecx
 	}
 
-	g_ConsoleLog->WriteOutput(g_HookMessage);		// much stack abuse? wonder if it's advisable to move this inside the asm wrapper
-													// or a __stdcall wrapper
+	g_ConsoleLog->WriteOutput(g_HookMessage);
+										
 	__asm
 	{
 		popad
@@ -112,8 +112,6 @@ bool OBSEPlugin_Query(const OBSEInterface * obse, PluginInfo * info)
 
 	if(!obse->isEditor)
 	{
-//		gLog.Open("ConScribe.log");
-
 		if(obse->obseVersion < OBSE_VERSION_INTEGER)
 		{
 			_MESSAGE("OBSE version too old (got %08X expected at least %08X)", obse->obseVersion, OBSE_VERSION_INTEGER);
