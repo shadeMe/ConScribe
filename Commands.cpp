@@ -70,7 +70,7 @@ static bool Cmd_ConScribe_UnregisterLog_Execute(COMMAND_ARGS)
 		LogManager::GetSingleton()->UnregisterLog(ModName, Buffer);
 
 	if (DeleteFlag) {
-		DeleteFile(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str());
+		DeleteFile(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str());
 		_MESSAGE("Deleted '%s'", Buffer);
 	}
 
@@ -120,9 +120,9 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 	std::vector<OBSEElement> LogContents;
 
 	if (!_stricmp(Buffer, "*.*") && LogManager::GetSingleton()->GetDefaultLog(ModName))
-		LogPath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
+		LogPath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
 	else if (LogManager::GetSingleton()->IsLogRegistered(ModName, Buffer))
-		LogPath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
+		LogPath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
 	else		return true;
 	LogContents.push_back(LogPath.c_str());
 
@@ -174,7 +174,7 @@ CommandInfo kCommandInfo_Scribe =
 	"Scribe",
 	"",
 	0,
-	"ConScribe: Primary output function. Prints output to a specific log file and, optionally, to the console.",
+	"Primary output function. Prints output to a specific log file and, optionally, to the console.",
 	0,
 	SIZEOF_FMT_STRING_PARAMS + 1,
 	kParams_Scribe,
@@ -187,7 +187,7 @@ CommandInfo kCommandInfo_RegisterLog =
 	"RegisterLog",
 	"",
 	0,
-	"ConScribe: Registers a log file to the calling mod as an output for the Scribe command.",
+	"Registers a log file to the calling mod as an output for the Scribe command.",
 	0,
 	SIZEOF_FMT_STRING_PARAMS + 1,
 	kParams_RegisterLog,
@@ -200,7 +200,7 @@ CommandInfo kCommandInfo_UnregisterLog =
 	"UnregisterLog",
 	"",
 	0,
-	"ConScribe: Unregisters the calling mod's registered log.",
+	"Unregisters the calling mod's registered log.",
 	0,
 	SIZEOF_FMT_STRING_PARAMS + 2,
 	kParams_UnregisterLog,
@@ -213,7 +213,7 @@ CommandInfo kCommandInfo_GetRegisteredLogNames =
 	"GetRegisteredLogNames",
 	"",
 	0,
-	"ConScribe: Returns an array populated with the calling mod's registered logs, if any.",
+	"Returns an array populated with the calling mod's registered logs, if any.",
 	0,
 	1,
 	kParams_OneOptionalInt,
@@ -226,7 +226,7 @@ CommandInfo kCommandInfo_ReadFromLog =
 	"ReadFromLog",
 	"",
 	0,
-	"ConScribe: Returns an array populated with the registered log's contents",
+	"Returns an array populated with the registered log's contents",
 	0,
 	1,
 	kParams_ReadFromLog,

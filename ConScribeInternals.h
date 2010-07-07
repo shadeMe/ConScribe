@@ -25,6 +25,7 @@
 
 //	TODO +++++++++++++++++++
 
+extern char*											g_HookMessage;
 
 #if OBLIVION_VERSION == OBLIVION_VERSION_1_2_416
 	const UInt32 kConsolePrintHookAddr = 0x00585D2E;
@@ -34,12 +35,14 @@
 	#error unsupported oblivion version
 #endif
 
+void ConsolePrintHook(void);
+
 class INISetting 
 {
 	INISetting();
 public:
-	std::string												Value;
-	std::string												Key;
+	std::string											Value;
+	std::string											Key;
 
 	INISetting(const char* Key, const char* Section, const char* DefaultValue);
 
@@ -68,13 +71,15 @@ public:
 	void												SetINIPath(std::string INIPath) { INIFile = INIPath; }
 };
 
-#define GET_INI(KEY)									INIManager::GetSingleton()->FetchSetting(KEY)
+#define GET_INI(key)									INIManager::GetSingleton()->FetchSetting(key)
+#define GET_INI_STRING(key)								INIManager::GetSingleton()->FetchSetting(key)->GetValueAsString()
+#define GET_INI_INT(key)								INIManager::GetSingleton()->FetchSetting(key)->GetValueAsInteger()
 
 class ConScribeLog 
 {
 	ConScribeLog();
 protected:
-	std::fstream FileStream;
+	std::fstream										FileStream;
 public:
 	static enum											OpenMode
 															{
@@ -102,6 +107,8 @@ public:
 	void												WriteOutput(const char* Message);	
 	void												HandleLoadCallback(void);
 };
+
+extern ConScribeLog*									g_ConsoleLog;
 
 class LogData
 {
@@ -148,7 +155,7 @@ public:
 	void												DoLoadCallback(OBSESerializationInterface* Interface);
 	void												DoSaveCallback(OBSESerializationInterface* Interface);	
 
-	void												ConvertDeprecatedRecord(std::string Record);
+	void												ConvertDeprecatedRecordCSRB(std::string Record);
 };
 
 

@@ -1,5 +1,30 @@
 #include "ConScribeInternals.h"
 
+// HOOKS
+
+void __declspec(naked) ConsolePrintHook(void)
+{
+    __asm
+    {
+		pushad
+		mov		ecx, [ecx]
+		mov		g_HookMessage, ecx
+	}
+
+	g_ConsoleLog->WriteOutput(g_HookMessage);
+										
+	__asm
+	{
+		popad
+
+		push	ecx
+		mov		ecx, eax
+		call    kConsolePrintCallAddr
+
+		jmp		kConsolePrintRetnAddr
+	}
+} 
+
 // INI SETTING
 
 INISetting::INISetting(const char* Key, const char* Section, const char* DefaultValue)
@@ -71,7 +96,7 @@ void INIManager::Initialize(const OBSEInterface* OBSE)
 	RegisterSetting(new INISetting("LogBackups", "General", "-1"));
 	RegisterSetting(new INISetting("RootDirectory", "General", "Default"));
 
-	if (!_stricmp(GET_INI("RootDirectory")->GetValueAsString(), "Default")) {
+	if (!_stricmp(GET_INI_STRING("RootDirectory"), "Default")) {
 		GET_INI("RootDirectory")->SetValue(OBSE->GetOblivionDirectory());
 		_MESSAGE("Root set to default directory");
 	}
@@ -148,8 +173,8 @@ std::vector<std::string> ConScribeLog::ReadAllLines()
 void ConsoleLog::WriteOutput(const char* Message)
 {
 	if (!Message)												return;
-	std::string Includes(GET_INI("Includes")->GetValueAsString()), 
-				Excludes(GET_INI("Excludes")->GetValueAsString());
+	std::string Includes(GET_INI_STRING("Includes")), 
+				Excludes(GET_INI_STRING("Excludes"));
 
 	if (Includes != "" && !GetInString(Message, Includes))		return;
 	if (Excludes != "" && GetInString(Message, Includes) > 0)	return;
@@ -159,8 +184,8 @@ void ConsoleLog::WriteOutput(const char* Message)
 
 void ConsoleLog::HandleLoadCallback(void)
 {
-	if (!_stricmp(GET_INI("ScribeMode")->GetValueAsString(), "PerLoad")) {
-		g_ConsoleLog->Open(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
+	if (!_stricmp(GET_INI_STRING("ScribeMode"), "PerLoad")) {
+		g_ConsoleLog->Open(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
 	}
 	else		AppendLoadHeader();
 }
@@ -347,13 +372,13 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 		char Buffer[0x10];
 		_sprintf_p(Buffer, sizeof(Buffer), "%08X", RefID);
 		FormID = Buffer; FormID.erase(0,2);
-		FilePath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
+		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
 		break;
 	case e_Mod:
-		FilePath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
 		break;
 	case e_Default:
-		FilePath = std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
+		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
 		break;
 	}
 
@@ -382,7 +407,7 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 		{
 		case 'CSRB':		
 			Interface->ReadRecordData(&Buffer, Length);
-			ConvertDeprecatedRecord(Buffer);
+			ConvertDeprecatedRecordCSRB(Buffer);
 			break;
 		case 'CSMN':
 			Interface->ReadRecordData(&ModName, Length);
@@ -446,9 +471,9 @@ void LogManager::DoSaveCallback(OBSESerializationInterface* Interface)
 	_MESSAGE("Done dumping database to cosave\n");
 }
 
-void LogManager::ConvertDeprecatedRecord(std::string Record)
+void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 {
-	_MESSAGE("+ Deprecated record 'CSRB'. Converting ...");
+	_MESSAGE("\tDeprecated record 'CSRB'. Converting ...");
 	std::string::size_type DelimiterIdx = Record.find("|");
 	std::string ModName = Record.substr(0, DelimiterIdx), LogList = Record.erase(0, DelimiterIdx + 1);
 
@@ -485,7 +510,7 @@ std::string GetTimeString(void)
 	_time32(&TimeData);
 	_localtime32_s(&LocalTime, &TimeData);
 
-	if (!strftime(TimeString, sizeof(TimeString), GET_INI("TimeFormat")->GetValueAsString(), &LocalTime)) {
+	if (!strftime(TimeString, sizeof(TimeString), GET_INI_STRING("TimeFormat"), &LocalTime)) {
 		_MESSAGE("Couldn't parse TimeFormat string. Using default format");
 		strftime(TimeString, sizeof(TimeString), "%m-%d-%Y %H-%M-%S", &LocalTime);
 	}
@@ -524,11 +549,12 @@ void LogWinAPIErrorMessage(DWORD ErrorID)
 		0, NULL );
 
 	_MESSAGE("\tError Message: %s", ErrorMsg); 
+	LocalFree(ErrorMsg);
 }
 
 bool CreateLogDirectories()
 {
-	std::string LogDirectory = GET_INI("RootDirectory")->GetValueAsString();
+	std::string LogDirectory = GET_INI_STRING("RootDirectory");
 	if (LogDirectory[LogDirectory.length() - 1] != '\\')	LogDirectory += "\\";			// append leading backward slash when not found
 
 	if ((CreateDirectory((LogDirectory + "ConScribe Logs").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
@@ -561,9 +587,9 @@ void PerformHouseKeeping(const char* DirectoryPath, const char* File, HouseKeepi
 
 void DoBackup(std::string FilePath, std::string FileName)
 {
-	int NoOfBackups = GET_INI("LogBackups")->GetValueAsInteger(), ID = 0;
+	int NoOfBackups = GET_INI_INT("LogBackups"), ID = 0;
 	if (NoOfBackups == -1)
-		return;													// -1 implies that a time header is appended instead
+		return;													// a time header is appended instead
 	else if (NoOfBackups > MAX_BACKUPS)
 		NoOfBackups = MAX_BACKUPS;
 

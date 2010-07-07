@@ -18,31 +18,6 @@ ConScribeLog*							g_ConsoleLog	= NULL;
 std::map<const char*, const char*>*		g_CSECommandMap = NULL;
 
 
-// HOOKS
-
-static __declspec(naked) void ConsolePrintHook(void)
-{
-    __asm
-    {
-		pushad
-		mov		ecx, [ecx]
-		mov		g_HookMessage, ecx
-	}
-
-	g_ConsoleLog->WriteOutput(g_HookMessage);
-										
-	__asm
-	{
-		popad
-
-		push	ecx
-		mov		ecx, eax
-		call    kConsolePrintCallAddr
-
-		jmp		kConsolePrintRetnAddr
-	}
-} 
-
 // SERIALIZATION CALLBACKS
 
 static void LoadCallbackHandler(void * reserved)
@@ -52,9 +27,9 @@ static void LoadCallbackHandler(void * reserved)
 
 	LogManager::GetSingleton()->DoLoadCallback(g_serialization);
 
-	if (GET_INI("LogBackups")->GetValueAsInteger() == -1) {
+	if (GET_INI_INT("LogBackups") == -1) {
 		_MESSAGE("\nAppending log headers...\n");
-		std::string LogDirectory(GET_INI("RootDirectory")->GetValueAsString());
+		std::string LogDirectory(GET_INI_STRING("RootDirectory"));
 		PerformHouseKeeping((LogDirectory + "ConScribe Logs\\Per-Mod\\").c_str(), "*.log", e_AppendHeaders);
 		PerformHouseKeeping((LogDirectory + "ConScribe Logs\\Per-Script\\").c_str(), "*.log", e_AppendHeaders);
 	}
@@ -160,16 +135,16 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 
 
 		_MESSAGE("\nBacking up logs...\n");
-		PerformHouseKeeping(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Script").c_str(), "*.log*", e_BackupLogs);
-		PerformHouseKeeping(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Per-Mod").c_str(), "*.log*", e_BackupLogs);
-		PerformHouseKeeping(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs").c_str(), "Static Log.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script").c_str(), "*.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod").c_str(), "*.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs").c_str(), "Static Log.log*", e_BackupLogs);
 
 
 		// CONSTRUCT CONSOLE LOG
-		if (!_stricmp(GET_INI("ScribeMode")->GetValueAsString(), "Static"))
-			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Static Log.log").c_str(), ConScribeLog::e_Out);
+		if (!_stricmp(GET_INI_STRING("ScribeMode"), "Static"))
+			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Static Log.log").c_str(), ConScribeLog::e_Out);
 		else
-			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI("RootDirectory")->GetValueAsString()) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
+			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
 
 
 	
@@ -184,12 +159,12 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 		WriteRelJump(kConsolePrintHookAddr, (UInt32)ConsolePrintHook); 
 
 		_MESSAGE("\nINI Options:\n\tScribeMode = %s\n\tIncludes = %s\n\tExcludes = %s\n\tTimeFormat = %s\n\tLogBackups = %s\n\tRootDirectory = %s\n",
-				GET_INI("ScribeMode")->GetValueAsString(),
-				GET_INI("Includes")->GetValueAsString(),
-				GET_INI("Excludes")->GetValueAsString(),
-				GET_INI("TimeFormat")->GetValueAsString(),
-				GET_INI("LogBackups")->GetValueAsString(),
-				GET_INI("RootDirectory")->GetValueAsString());
+				GET_INI_STRING("ScribeMode"),
+				GET_INI_STRING("Includes"),
+				GET_INI_STRING("Excludes"),
+				GET_INI_STRING("TimeFormat"),
+				GET_INI_STRING("LogBackups"),
+				GET_INI_STRING("RootDirectory"));
 	} else {
 		g_msgIntfc = (OBSEMessagingInterface*)obse->QueryInterface(kInterface_Messaging);
 		g_msgIntfc->RegisterListener(g_pluginHandle, "OBSE", OBSEMessageHandler);
