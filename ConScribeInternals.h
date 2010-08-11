@@ -10,22 +10,17 @@
 #include "intrin.h"
 
 #include "obse/PluginAPI.h"
-
-#include "obse/GameAPI.h"
 #include "obse/ParamInfos.h"
 #include "obse/ScriptUtils.h"
 #include "obse/GameData.h"
-#include "obse/GameForms.h"
-#include "obse/GameObjects.h"
-#include "obse_common/SafeWrite.h"
-#include "common/IDirectoryIterator.h"
+#include "obse_common/SafeWrite.h"#include "common/IDirectoryIterator.h"
 
 #define SAVE_VERSION									3
 #define MAX_BACKUPS										5
 
 //	TODO +++++++++++++++++++
 
-extern char*											g_HookMessage;
+extern const char*										g_HookMessage;
 
 #if OBLIVION_VERSION == OBLIVION_VERSION_1_2_416
 	const UInt32 kConsolePrintHookAddr = 0x00585D2E;

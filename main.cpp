@@ -12,7 +12,7 @@ OBSEMessagingInterface*					g_msgIntfc		= NULL;
 
 
 UInt32									g_SessionCount	= 0;
-char*									g_HookMessage	= NULL;
+const char*								g_HookMessage	= NULL;
 
 ConScribeLog*							g_ConsoleLog	= NULL;
 std::map<const char*, const char*>*		g_CSECommandMap = NULL;
@@ -73,7 +73,6 @@ void OBSEMessageHandler(OBSEMessagingInterface::Message* Msg)
 		_MESSAGE("Registered to receive messages from CSE");
 	}
 }
-
 
 //	HOUSEKEEPING & INIT
 
@@ -156,7 +155,7 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 		g_stringvar = (OBSEStringVarInterface*)obse->QueryInterface(kInterface_StringVar);
 		RegisterStringVarInterface(g_stringvar);
 
-		WriteRelJump(kConsolePrintHookAddr, (UInt32)ConsolePrintHook); 
+		WriteRelJump(kConsolePrintHookAddr, (UInt32)ConsolePrintHook); 		
 
 		_MESSAGE("\nINI Options:\n\tScribeMode = %s\n\tIncludes = %s\n\tExcludes = %s\n\tTimeFormat = %s\n\tLogBackups = %s\n\tRootDirectory = %s\n",
 				GET_INI_STRING("ScribeMode"),

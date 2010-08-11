@@ -155,7 +155,7 @@ void ConScribeLog::AppendLoadHeader()
 
 std::vector<std::string> ConScribeLog::ReadAllLines()
 {
-	std::vector<std::string> LogContents;		// passed as a STL string to prevent identical char pointers
+	std::vector<std::string> LogContents;
 	char Buffer[0x4000];
 
 	if (!FileStream.fail())	{
@@ -382,9 +382,8 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 		break;
 	}
 
-	ConScribeLog* TempLog = new ConScribeLog(FilePath.c_str(), ConScribeLog::e_OutAp);
-	TempLog->WriteOutput(MessageBuffer.c_str());
-	delete TempLog;
+	ConScribeLog TempLog(FilePath.c_str(), ConScribeLog::e_OutAp);
+	TempLog.WriteOutput(MessageBuffer.c_str());
 }
 
 LogData* LogManager::GetModLogData(const char* ModName)
@@ -413,7 +412,8 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 			Interface->ReadRecordData(&ModName, Length);
 			ModName[Length] = 0;
 
-			if (!ModName || !(*g_dataHandler)->LookupModByName(ModName)->IsLoaded()) {
+			const ModEntry* ParentMod = (*g_dataHandler)->LookupModByName(ModName);
+			if (!ModName || !ParentMod || !ParentMod->IsLoaded()) {
 				_MESSAGE("Mod %s is not loaded/Invalid Mod. Skipping corresponding records ...", ModName);
 				do { Interface->GetNextRecordInfo(&Type, &Version, &Length); } 
 				while (Type != 'CSEC');
@@ -477,8 +477,9 @@ void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 	std::string::size_type DelimiterIdx = Record.find("|");
 	std::string ModName = Record.substr(0, DelimiterIdx), LogList = Record.erase(0, DelimiterIdx + 1);
 
-	if (!(*g_dataHandler)->LookupModByName(ModName.c_str())->IsLoaded()) {
-		_MESSAGE("Mod %s is not loaded. Skipping corresponding records ...", ModName);
+	const ModEntry* ParentMod = (*g_dataHandler)->LookupModByName(ModName.c_str());
+	if (!ParentMod || !ParentMod->IsLoaded()) {
+		_MESSAGE("Mod %s is not loaded. Skipping corresponding records ...", ModName.c_str());
 		return;
 	}
 
@@ -633,8 +634,6 @@ void DoBackup(std::string FilePath, std::string FileName)
 
 void AppendHeader(std::string FilePath)
 {
-	ConScribeLog* SavedLog = new ConScribeLog(FilePath.c_str(), ConScribeLog::e_OutAp);
-	SavedLog->AppendLoadHeader();
-
-	delete SavedLog;
+	ConScribeLog SavedLog(FilePath.c_str(), ConScribeLog::e_OutAp);
+	SavedLog.AppendLoadHeader();
 }
