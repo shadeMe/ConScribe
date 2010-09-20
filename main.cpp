@@ -1,7 +1,7 @@
 #include "ConScribeInternals.h"
 #include "Commands.h"
 
-#define									PLUGIN_VERSION	  8
+#define									PLUGIN_VERSION	  9
 
 IDebugLog								gLog			("ConScribe.log");
 PluginHandle							g_pluginHandle	= kPluginHandle_Invalid;
@@ -27,9 +27,9 @@ static void LoadCallbackHandler(void * reserved)
 
 	LogManager::GetSingleton()->DoLoadCallback(g_serialization);
 
-	if (GET_INI_INT("LogBackups") == -1) {
+	if (g_INIManager->GET_INI_INT("LogBackups") == -1) {
 		_MESSAGE("\nAppending log headers...\n");
-		std::string LogDirectory(GET_INI_STRING("RootDirectory"));
+		std::string LogDirectory(g_INIManager->GET_INI_STRING("RootDirectory"));
 		PerformHouseKeeping((LogDirectory + "ConScribe Logs\\Per-Mod\\").c_str(), "*.log", e_AppendHeaders);
 		PerformHouseKeeping((LogDirectory + "ConScribe Logs\\Per-Script\\").c_str(), "*.log", e_AppendHeaders);
 	}
@@ -69,8 +69,8 @@ void ConScribeMessageHandler(OBSEMessagingInterface::Message* Msg)
 void OBSEMessageHandler(OBSEMessagingInterface::Message* Msg)
 {
 	if (Msg->type == OBSEMessagingInterface::kMessage_PostLoad) {
-		g_msgIntfc->RegisterListener(g_pluginHandle, "CSE", ConScribeMessageHandler);	
-		_MESSAGE("Registered to receive messages from CSE");
+	//	g_msgIntfc->RegisterListener(g_pluginHandle, "CSE", ConScribeMessageHandler);	
+	//	_MESSAGE("Registered to receive messages from CSE");
 	}
 }
 
@@ -128,22 +128,27 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 
 	if(!obse->isEditor)
 	{
-		INIManager::GetSingleton()->Initialize(obse);
+		g_INIManager->SetINIPath(std::string(obse->GetOblivionDirectory()) + "Data\\OBSE\\Plugins\\ConScribe.ini");
+		g_INIManager->Initialize();
+		if (!_stricmp(g_INIManager->GET_INI_STRING("RootDirectory"), "Default")) {
+			g_INIManager->GET_INI("RootDirectory")->SetValue(std::string(std::string(obse->GetOblivionDirectory()) + "Data\\").c_str());
+			_MESSAGE("Root set to default directory");
+		}
 
 		if (!CreateLogDirectories())		return false;
 
 
 		_MESSAGE("\nBacking up logs...\n");
-		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script").c_str(), "*.log*", e_BackupLogs);
-		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod").c_str(), "*.log*", e_BackupLogs);
-		PerformHouseKeeping(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs").c_str(), "Static Log.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script").c_str(), "*.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod").c_str(), "*.log*", e_BackupLogs);
+		PerformHouseKeeping(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs").c_str(), "Static Log.log*", e_BackupLogs);
 
 
 		// CONSTRUCT CONSOLE LOG
-		if (!_stricmp(GET_INI_STRING("ScribeMode"), "Static"))
-			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Static Log.log").c_str(), ConScribeLog::e_Out);
+		if (!_stricmp(g_INIManager->GET_INI_STRING("ScribeMode"), "Static"))
+			g_ConsoleLog = new ConsoleLog(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Static Log.log").c_str(), ConScribeLog::e_Out);
 		else
-			g_ConsoleLog = new ConsoleLog(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
+			g_ConsoleLog = new ConsoleLog(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
 
 
 	
@@ -158,12 +163,12 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 		WriteRelJump(kConsolePrintHookAddr, (UInt32)ConsolePrintHook); 		
 
 		_MESSAGE("\nINI Options:\n\tScribeMode = %s\n\tIncludes = %s\n\tExcludes = %s\n\tTimeFormat = %s\n\tLogBackups = %s\n\tRootDirectory = %s\n",
-				GET_INI_STRING("ScribeMode"),
-				GET_INI_STRING("Includes"),
-				GET_INI_STRING("Excludes"),
-				GET_INI_STRING("TimeFormat"),
-				GET_INI_STRING("LogBackups"),
-				GET_INI_STRING("RootDirectory"));
+				g_INIManager->GET_INI_STRING("ScribeMode"),
+				g_INIManager->GET_INI_STRING("Includes"),
+				g_INIManager->GET_INI_STRING("Excludes"),
+				g_INIManager->GET_INI_STRING("TimeFormat"),
+				g_INIManager->GET_INI_STRING("LogBackups"),
+				g_INIManager->GET_INI_STRING("RootDirectory"));
 	} else {
 		g_msgIntfc = (OBSEMessagingInterface*)obse->QueryInterface(kInterface_Messaging);
 		g_msgIntfc->RegisterListener(g_pluginHandle, "OBSE", OBSEMessageHandler);
@@ -176,6 +181,8 @@ bool OBSEPlugin_Load(const OBSEInterface * obse)
 	obse->RegisterCommand(&kCommandInfo_UnregisterLog);
 	obse->RegisterTypedCommand(&kCommandInfo_GetRegisteredLogNames, kRetnType_Array);
 	obse->RegisterTypedCommand(&kCommandInfo_ReadFromLog, kRetnType_Array);	
+	obse->RegisterCommand(&kCommandInfo_GetLogLineCount);
+	obse->RegisterCommand(&kCommandInfo_DeleteLinesFromLog);	
 
 	_MESSAGE("ConScribe initialized!\n");
 	return true;

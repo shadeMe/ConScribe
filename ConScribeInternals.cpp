@@ -25,59 +25,11 @@ void __declspec(naked) ConsolePrintHook(void)
 	}
 } 
 
-// INI SETTING
+ConScribeINIManager*		g_INIManager = new ConScribeINIManager();
+char						g_Buffer[0x4000];
 
-INISetting::INISetting(const char* Key, const char* Section, const char* DefaultValue)
+void ConScribeINIManager::Initialize()
 {
-	char Buffer[0x200];
-	this->Key = (Key);	
-	if (!INIManager::GetSingleton()->ShouldCreateINI()) {
-		GetPrivateProfileStringA(Section, Key, DefaultValue, Buffer, sizeof(Buffer), INIManager::GetSingleton()->GetINIPath());
-		Value = Buffer;
-	}
-	else {
-		WritePrivateProfileStringA(Section, Key, DefaultValue, INIManager::GetSingleton()->GetINIPath());
-		Value = DefaultValue;
-	}
-}
-
-// INI MANAGER
-
-std::string INIManager::INIFile = "";
-INIManager* INIManager::Singleton = NULL;
-
-INIManager::INIManager()
-{
-	CreateINI = false;
-}
-
-INIManager* INIManager::GetSingleton()
-{
-	if (!Singleton) {
-		Singleton = new INIManager();
-	}
-	return Singleton;
-}
-
-void INIManager::RegisterSetting(INISetting *Setting)
-{
-	INIList.push_back(Setting);
-}
-
-INISetting* INIManager::FetchSetting(const char* Key)
-{
-	for (_INIList::const_iterator Itr = INIList.begin(); Itr != INIList.end(); Itr++) {
-		if (!_stricmp((*Itr)->Key.c_str(), Key)) {
-			return *Itr;
-		}
-	}
-	return NULL;
-}
-
-void INIManager::Initialize(const OBSEInterface* OBSE)
-{
-	SetINIPath(std::string(OBSE->GetOblivionDirectory()) + "Data\\OBSE\\Plugins\\ConScribe.ini");
-
 	_MESSAGE("INI Path: %s", GetINIPath());
 	std::fstream INIStream(GetINIPath(), std::fstream::in);
 
@@ -89,23 +41,19 @@ void INIManager::Initialize(const OBSEInterface* OBSE)
 	INIStream.close();
 	INIStream.clear();
 
-	RegisterSetting(new INISetting("ScribeMode", "ConsoleLog", "Static"));
-	RegisterSetting(new INISetting("Includes", "ConsoleLog", ""));
-	RegisterSetting(new INISetting("Excludes", "ConsoleLog", ""));
-	RegisterSetting(new INISetting("TimeFormat", "General", "%m-%d-%Y %H-%M-%S"));
-	RegisterSetting(new INISetting("LogBackups", "General", "-1"));
-	RegisterSetting(new INISetting("RootDirectory", "General", "Default"));
-
-	if (!_stricmp(GET_INI_STRING("RootDirectory"), "Default")) {
-		GET_INI("RootDirectory")->SetValue(OBSE->GetOblivionDirectory());
-		_MESSAGE("Root set to default directory");
-	}
+	RegisterSetting(new INISetting(this, "ScribeMode", "ConsoleLog", "Static"));
+	RegisterSetting(new INISetting(this, "Includes", "ConsoleLog", ""));
+	RegisterSetting(new INISetting(this, "Excludes", "ConsoleLog", ""));
+	RegisterSetting(new INISetting(this, "TimeFormat", "General", "%m-%d-%Y %H-%M-%S"));
+	RegisterSetting(new INISetting(this, "LogBackups", "General", "-1"));
+	RegisterSetting(new INISetting(this, "RootDirectory", "General", "Default"));
 }
 
 // CONSCRIBE LOG
 
 ConScribeLog::ConScribeLog(const char* FileName, OpenMode Mode)
 {
+	FilePath = new char[0x104];
 	Open(FileName, Mode);
 }
 
@@ -125,6 +73,7 @@ void ConScribeLog::Open(const char* FileName, OpenMode Mode)
 		FileStream.open(FileName, std::fstream::in);
 		break;
 	}
+	sprintf_s(FilePath, 0x104, "%s", FileName);
 }
 
 void ConScribeLog::Close()
@@ -136,6 +85,7 @@ void ConScribeLog::Close()
 ConScribeLog::~ConScribeLog()
 {
 	Close();
+	delete FilePath;
 }
 
 void ConScribeLog::WriteOutput(const char* Message)
@@ -153,28 +103,69 @@ void ConScribeLog::AppendLoadHeader()
 			  << Padding << std::endl;
 }
 
-std::vector<std::string> ConScribeLog::ReadAllLines()
+void ConScribeLog::ReadAllLines(std::vector<std::string>& LogContents)
 {
-	std::vector<std::string> LogContents;
-	char Buffer[0x4000];
-
 	if (!FileStream.fail())	{
 		while (!FileStream.eof()) {
-			FileStream.getline(Buffer, sizeof(Buffer));
-			LogContents.push_back(Buffer);
+			FileStream.getline(g_Buffer, sizeof(g_Buffer));
+			LogContents.push_back(g_Buffer);
 		}
 	}
 	else
 		LogContents.push_back("Log file not found");
-
-	return LogContents;
 }
+
+UInt32 ConScribeLog::GetLineCount(void)
+{
+	UInt32 LineCount = 0;
+
+	if (!FileStream.fail())	{
+		while (!FileStream.eof()) {
+			FileStream.getline(g_Buffer, sizeof(g_Buffer));
+			LineCount++;
+		}
+	}
+	return LineCount;
+}
+
+void ConScribeLog::DeleteSlice(UInt32 Lower, UInt32 Upper)
+{
+	if (Lower > Upper)	return;
+
+	std::string TempPath = std::string(FilePath) + ".tmp";
+	std::fstream TempLog(TempPath.c_str(), std::fstream::out);
+	UInt32 LineCount = 1;
+
+	if (!FileStream.fail())	{
+		while (!FileStream.eof()) {
+			FileStream.getline(g_Buffer, sizeof(g_Buffer));
+			if (LineCount > Upper || LineCount < Lower) {
+				TempLog << g_Buffer << "\n";
+			}				
+			LineCount++;
+		}
+
+		TempLog.flush();
+		TempLog.close();
+		TempLog.clear();
+		Close();
+
+		if (!MoveFileEx(TempPath.c_str(), FilePath, MOVEFILE_REPLACE_EXISTING)) {
+			_MESSAGE("DeleteSlice failed! Existing Name = %s ; New Name = %s", TempPath.c_str(), FilePath);
+			LogWinAPIErrorMessage(GetLastError());
+		}
+
+		Open(FilePath, e_In);
+	}
+}
+
+// CONSOLE LOG
 
 void ConsoleLog::WriteOutput(const char* Message)
 {
 	if (!Message)												return;
-	std::string Includes(GET_INI_STRING("Includes")), 
-				Excludes(GET_INI_STRING("Excludes"));
+	std::string Includes(g_INIManager->GET_INI_STRING("Includes")), 
+				Excludes(g_INIManager->GET_INI_STRING("Excludes"));
 
 	if (Includes != "" && !GetInString(Message, Includes))		return;
 	if (Excludes != "" && GetInString(Message, Includes) > 0)	return;
@@ -184,8 +175,8 @@ void ConsoleLog::WriteOutput(const char* Message)
 
 void ConsoleLog::HandleLoadCallback(void)
 {
-	if (!_stricmp(GET_INI_STRING("ScribeMode"), "PerLoad")) {
-		g_ConsoleLog->Open(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
+	if (!_stricmp(g_INIManager->GET_INI_STRING("ScribeMode"), "PerLoad")) {
+		g_ConsoleLog->Open(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
 	}
 	else		AppendLoadHeader();
 }
@@ -341,6 +332,13 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 	}
 }
 
+void LogManager::UnregisterLog(const char* ModName)
+{
+	if (!IsModRegistered(ModName))					return;
+
+	LogDB[ModName]->RegisteredLogs.clear();
+}
+
 void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC)
 {
 	std::string MessageBuffer(Message), LogName, FilePath, FormID;
@@ -372,13 +370,13 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 		char Buffer[0x10];
 		_sprintf_p(Buffer, sizeof(Buffer), "%08X", RefID);
 		FormID = Buffer; FormID.erase(0,2);
-		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
+		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
 		break;
 	case e_Mod:
-		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
 		break;
 	case e_Default:
-		FilePath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
+		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
 		break;
 	}
 
@@ -498,6 +496,26 @@ void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 	SetDefaultLog(ModName.c_str(), DefaultLog.c_str());
 }
 
+void LogManager::DeleteSliceFromLog(const char* ModName, const char* LogName, UInt32 Lower, UInt32 Upper)
+{
+	if (!IsModRegistered(ModName))					return;
+	else if (!IsLogRegistered(ModName, LogName))	return;
+
+	std::string LogPath =  std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+	ConScribeLog TempLog(LogPath.c_str(), ConScribeLog::e_In);
+	TempLog.DeleteSlice(Lower, Upper);
+}
+
+int LogManager::GetLogLineCount(const char* ModName, const char* LogName)
+{
+	if (!IsModRegistered(ModName))					return 0;
+	else if (!IsLogRegistered(ModName, LogName))	return 0;
+
+	std::string LogPath =  std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+	ConScribeLog TempLog(LogPath.c_str(), ConScribeLog::e_In);
+	return TempLog.GetLineCount();
+}
+
 
 
 // MISC
@@ -511,7 +529,7 @@ std::string GetTimeString(void)
 	_time32(&TimeData);
 	_localtime32_s(&LocalTime, &TimeData);
 
-	if (!strftime(TimeString, sizeof(TimeString), GET_INI_STRING("TimeFormat"), &LocalTime)) {
+	if (!strftime(TimeString, sizeof(TimeString), g_INIManager->GET_INI_STRING("TimeFormat"), &LocalTime)) {
 		_MESSAGE("Couldn't parse TimeFormat string. Using default format");
 		strftime(TimeString, sizeof(TimeString), "%m-%d-%Y %H-%M-%S", &LocalTime);
 	}
@@ -555,7 +573,7 @@ void LogWinAPIErrorMessage(DWORD ErrorID)
 
 bool CreateLogDirectories()
 {
-	std::string LogDirectory = GET_INI_STRING("RootDirectory");
+	std::string LogDirectory = g_INIManager->GET_INI_STRING("RootDirectory");
 	if (LogDirectory[LogDirectory.length() - 1] != '\\')	LogDirectory += "\\";			// append leading backward slash when not found
 
 	if ((CreateDirectory((LogDirectory + "ConScribe Logs").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
@@ -588,7 +606,7 @@ void PerformHouseKeeping(const char* DirectoryPath, const char* File, HouseKeepi
 
 void DoBackup(std::string FilePath, std::string FileName)
 {
-	int NoOfBackups = GET_INI_INT("LogBackups"), ID = 0;
+	int NoOfBackups = g_INIManager->GET_INI_INT("LogBackups"), ID = 0;
 	if (NoOfBackups == -1)
 		return;													// a time header is appended instead
 	else if (NoOfBackups > MAX_BACKUPS)

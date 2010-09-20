@@ -13,7 +13,12 @@
 #include "obse/ParamInfos.h"
 #include "obse/ScriptUtils.h"
 #include "obse/GameData.h"
-#include "obse_common/SafeWrite.h"#include "common/IDirectoryIterator.h"
+#include "obse_common/SafeWrite.h"
+#include "common/IDirectoryIterator.h"
+#include "[ Libraries ]/INI Mananger/INIManager.h"
+
+using namespace SME;
+using namespace INI;
 
 #define SAVE_VERSION									3
 #define MAX_BACKUPS										5
@@ -21,6 +26,7 @@
 //	TODO +++++++++++++++++++
 
 extern const char*										g_HookMessage;
+extern char												g_Buffer[0x4000];
 
 #if OBLIVION_VERSION == OBLIVION_VERSION_1_2_416
 	const UInt32 kConsolePrintHookAddr = 0x00585D2E;
@@ -32,53 +38,26 @@ extern const char*										g_HookMessage;
 
 void ConsolePrintHook(void);
 
-class INISetting 
+
+class ConScribeINIManager : public INIManager
 {
-	INISetting();
 public:
-	std::string											Value;
-	std::string											Key;
-
-	INISetting(const char* Key, const char* Section, const char* DefaultValue);
-
-	int													GetValueAsInteger(void) { return atoi(Value.c_str()); }
-	const char*											GetValueAsString(void)	{ return Value.c_str(); }
-	void												SetValue(const char* NewValue) { Value = NewValue; }
+	void					Initialize();
 };
 
-class INIManager 
-{
-	static INIManager*									Singleton;
-	static std::string									INIFile;
+extern ConScribeINIManager*		g_INIManager;
 
-	typedef std::vector<INISetting*>					_INIList;
-	_INIList											INIList;
-	bool												CreateINI;
-	INIManager();
-public:
-	static INIManager*									GetSingleton();
-
-	void												RegisterSetting(INISetting* Setting);
-	INISetting*											FetchSetting(const char* Key);
-	void												Initialize(const OBSEInterface * OBSE);
-	bool												ShouldCreateINI() { return CreateINI; }
-	const char*											GetINIPath() { return INIFile.c_str(); }
-	void												SetINIPath(std::string INIPath) { INIFile = INIPath; }
-};
-
-#define GET_INI(key)									INIManager::GetSingleton()->FetchSetting(key)
-#define GET_INI_STRING(key)								INIManager::GetSingleton()->FetchSetting(key)->GetValueAsString()
-#define GET_INI_INT(key)								INIManager::GetSingleton()->FetchSetting(key)->GetValueAsInteger()
 
 class ConScribeLog 
 {
 	ConScribeLog();
 protected:
 	std::fstream										FileStream;
+	char*												FilePath;
 public:
-	static enum											OpenMode
+	enum												OpenMode
 															{
-																e_OutAp,
+																e_OutAp = 0,
 																e_Out,
 																e_In
 															};
@@ -91,7 +70,9 @@ public:
 	virtual void										WriteOutput(const char* Message);
 	void												AppendLoadHeader(void);
 	virtual void										HandleLoadCallback(void) { return; }
-	std::vector<std::string>							ReadAllLines(void);	
+	void												ReadAllLines(std::vector<std::string>& LogContents);
+	UInt32												GetLineCount(void);
+	void												DeleteSlice(UInt32 Lower, UInt32 Upper);
 };
 
 class ConsoleLog : public ConScribeLog
@@ -143,7 +124,10 @@ public:
 	const char*											GetDefaultLog(const char* ModName);
 	void												RegisterLog(const char* ModName, const char* LogName);
 	void												UnregisterLog(const char* ModName, const char* LogName);
-	void												ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC);								
+	void												UnregisterLog(const char* ModName);		// clears log table
+	void												ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC);	
+	void												DeleteSliceFromLog(const char* ModName, const char* LogName, UInt32 Lower, UInt32 Upper);
+	int													GetLogLineCount(const char* ModName, const char* LogName);
 
 	LogData*											GetModLogData(const char* ModName);
 

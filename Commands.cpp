@@ -24,11 +24,15 @@ static bool Cmd_ConScribe_RegisterLog_Execute(COMMAND_ARGS)
 	UInt32 DefaultFlag = 0;
 	char Buffer[kMaxMessageLength];
 	const char* ModName = ResolveModName(scriptObj);
+	*result = 0;
 
-	if (Buffer == NULL || ModName == NULL)
+	if (Buffer == NULL || ModName == NULL) {
+		*result = -1;
 		return true;
-	else if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_RegisterLog.numParams, &DefaultFlag))
+	} else if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_RegisterLog.numParams, &DefaultFlag)) {
+		*result = -1;
 		return true;
+	}
 
 	LogManager::GetSingleton()->RegisterMod(ModName);
 
@@ -37,9 +41,15 @@ static bool Cmd_ConScribe_RegisterLog_Execute(COMMAND_ARGS)
 	std::string StringBuffer(Buffer);
 	if (StringBuffer.find_first_of(InvalidChars) != std::string::npos) {
 		_MESSAGE("Invalid log name '%s' passed in script %08x", Buffer, scriptObj->refID);
+		*result = -1;
 		return true;
-	} else	
-		LogManager::GetSingleton()->RegisterLog(ModName, Buffer);
+	} else if (LogManager::GetSingleton()->IsLogRegistered(Buffer)) {
+		_MESSAGE("Log name '%s' passed in script %08x already registered", Buffer, scriptObj->refID);
+		*result = -1;
+		return true;
+	}
+	
+	LogManager::GetSingleton()->RegisterLog(ModName, Buffer);
 
 	if (DefaultFlag)			LogManager::GetSingleton()->SetDefaultLog(ModName, Buffer);
 	return true;
@@ -52,6 +62,7 @@ static bool Cmd_ConScribe_UnregisterLog_Execute(COMMAND_ARGS)
 	UInt32 DeleteFlag = 0;
 	char Buffer[kMaxMessageLength];
 	const char* ModName = ResolveModName(scriptObj);
+	*result = 0;
 
 	if (Buffer == NULL || ModName == NULL)
 		return true;
@@ -61,8 +72,10 @@ static bool Cmd_ConScribe_UnregisterLog_Execute(COMMAND_ARGS)
 	if (!_stricmp(Buffer, "*.*")) {
 		if (!DefaultFlag) { 		
 			_MESSAGE("Mod '%s' unregistered all of its logs", ModName);
-			LogManager::GetSingleton()->GetModLogData(ModName)->RegisteredLogs.clear();
+			LogManager::GetSingleton()->UnregisterLog(ModName);
 			DeleteFlag = 0;
+		} else if (DeleteFlag) {
+			sprintf_s(Buffer, kMaxMessageLength, "%s", LogManager::GetSingleton()->GetDefaultLog(ModName));
 		}
 		LogManager::GetSingleton()->SetDefaultLog(ModName, (const char*)NULL);
 	}
@@ -70,8 +83,12 @@ static bool Cmd_ConScribe_UnregisterLog_Execute(COMMAND_ARGS)
 		LogManager::GetSingleton()->UnregisterLog(ModName, Buffer);
 
 	if (DeleteFlag) {
-		DeleteFile(std::string(std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str());
-		_MESSAGE("Deleted '%s'", Buffer);
+		if (DeleteFile(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str()))
+			_MESSAGE("Deleted '%s'", Buffer);
+		else {
+			_MESSAGE("Couldn't delete '%s'", Buffer);
+			LogWinAPIErrorMessage(GetLastError());
+		}
 	}
 
 	return true;
@@ -120,14 +137,15 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 	std::vector<OBSEElement> LogContents;
 
 	if (!_stricmp(Buffer, "*.*") && LogManager::GetSingleton()->GetDefaultLog(ModName))
-		LogPath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
+		LogPath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
 	else if (LogManager::GetSingleton()->IsLogRegistered(ModName, Buffer))
-		LogPath = std::string(GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
+		LogPath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
 	else		return true;
 	LogContents.push_back(LogPath.c_str());
 
-	ConScribeLog* TempLog = new ConScribeLog(LogPath.c_str(), ConScribeLog::e_In);
-	std::vector<std::string> STLVector(TempLog->ReadAllLines());
+	std::vector<std::string> STLVector;
+	ConScribeLog TempLog(LogPath.c_str(), ConScribeLog::e_In);
+	TempLog.ReadAllLines(STLVector);
 
 	OBSEArray* ResultArray = ArrayFromStdVector(LogContents, scriptObj);
 
@@ -139,6 +157,44 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 	if (!ResultArray)													_MESSAGE("Couldn't create array. Passed in script %08x", scriptObj->refID);
 	else if (!g_arrayIntfc->AssignCommandResult(ResultArray, result))	_MESSAGE("Couldn't assign result array. Passed in script %08x", scriptObj->refID);
 
+	return true;
+}
+
+static bool Cmd_ConScribe_GetLogLineCount_Execute(COMMAND_ARGS)
+{
+	const char* ModName = ResolveModName(scriptObj);
+	char Buffer[kMaxMessageLength];
+	*result = 0;
+
+	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_GetLogLineCount.numParams))
+		return true;
+	else if (Buffer == NULL || ModName == NULL)
+		return true;
+
+	*result = LogManager::GetSingleton()->GetLogLineCount(ModName, Buffer);
+	return true;
+}
+
+static bool Cmd_ConScribe_DeleteLinesFromLog_Execute(COMMAND_ARGS)
+{
+	UInt32	LowerLimit = 0,
+			UpperLimit = 0;
+	const char* ModName = ResolveModName(scriptObj);
+	char Buffer[kMaxMessageLength];
+	*result = -1;
+
+	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_DeleteLinesFromLog.numParams, &LowerLimit, &UpperLimit))
+		return true;
+	else if (Buffer == NULL || ModName == NULL)
+		return true;
+
+	if (LowerLimit > UpperLimit) {
+		_MESSAGE("Invalid slice passed to DeleteLinesFromLog in script %08x", scriptObj->refID);		
+		return true;
+	}
+
+	LogManager::GetSingleton()->DeleteSliceFromLog(ModName, Buffer, LowerLimit, UpperLimit);
+	*result = 0;
 	return true;
 }
 
@@ -167,6 +223,18 @@ static ParamInfo kParams_UnregisterLog[SIZEOF_FMT_STRING_PARAMS + 2] =
 static ParamInfo kParams_ReadFromLog[SIZEOF_FMT_STRING_PARAMS] =
 {
 	FORMAT_STRING_PARAMS
+};
+
+static ParamInfo kParams_GetLogLineCount[SIZEOF_FMT_STRING_PARAMS] =
+{
+	FORMAT_STRING_PARAMS
+};
+
+static ParamInfo kParams_DeleteLinesFromLog[SIZEOF_FMT_STRING_PARAMS + 2] =
+{
+	FORMAT_STRING_PARAMS,
+	{	"lower limit",	kParamType_Integer,	0	},
+	{	"upper limit",	kParamType_Integer,	0	}
 };
 
 CommandInfo kCommandInfo_Scribe =
@@ -226,12 +294,38 @@ CommandInfo kCommandInfo_ReadFromLog =
 	"ReadFromLog",
 	"",
 	0,
-	"Returns an array populated with the registered log's contents",
+	"Returns an array populated with the registered log's contents.",
 	0,
 	1,
 	kParams_ReadFromLog,
 	
 	Cmd_ConScribe_ReadFromLog_Execute
+};
+
+CommandInfo kCommandInfo_GetLogLineCount =
+{
+	"GetLogLineCount",
+	"",
+	0,
+	"Returns the number of lines of text present in the registered log.",
+	0,
+	SIZEOF_FMT_STRING_PARAMS,
+	kParams_GetLogLineCount,
+	
+	Cmd_ConScribe_GetLogLineCount_Execute
+};
+
+CommandInfo kCommandInfo_DeleteLinesFromLog =
+{
+	"DeleteLinesFromLog",
+	"",
+	0,
+	"Deletes a slice of lines from the registered log.",
+	0,
+	SIZEOF_FMT_STRING_PARAMS + 2,
+	kParams_DeleteLinesFromLog,
+	
+	Cmd_ConScribe_DeleteLinesFromLog_Execute
 };
 
 

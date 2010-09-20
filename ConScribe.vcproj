@@ -186,6 +186,14 @@
 			Name="obse"
 			>
 			<File
+				RelativePath="..\obse\obse\GameActorValues.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\obse\obse\GameActorValues.h"
+				>
+			</File>
+			<File
 				RelativePath="..\obse\obse\GameAPI.cpp"
 				>
 			</File>
@@ -231,6 +239,14 @@
 			</File>
 			<File
 				RelativePath="..\obse\obse\GameRTTI_1_2_416.inl"
+				>
+			</File>
+			<File
+				RelativePath="..\obse\obse\GameTasks.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\obse\obse\GameTasks.h"
 				>
 			</File>
 			<File
@@ -336,6 +352,14 @@
 		</File>
 		<File
 			RelativePath=".\exports.def"
+			>
+		</File>
+		<File
+			RelativePath="..\[ Libraries ]\INI Mananger\INIManager.cpp"
+			>
+		</File>
+		<File
+			RelativePath="..\[ Libraries ]\INI Mananger\INIManager.h"
 			>
 		</File>
 		<File

@@ -8,7 +8,8 @@ extern CommandInfo kCommandInfo_RegisterLog;
 extern CommandInfo kCommandInfo_UnregisterLog;
 extern CommandInfo kCommandInfo_GetRegisteredLogNames;
 extern CommandInfo kCommandInfo_ReadFromLog;
-
+extern CommandInfo kCommandInfo_GetLogLineCount;
+extern CommandInfo kCommandInfo_DeleteLinesFromLog;
 
 const char* ResolveModName(Script* ScriptObj);
 
