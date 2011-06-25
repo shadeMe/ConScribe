@@ -15,7 +15,9 @@
 #include "obse/GameData.h"
 #include "obse_common/SafeWrite.h"
 #include "common/IDirectoryIterator.h"
-#include "[ Libraries ]/INI Mananger/INIManager.h"
+
+#include "[Libraries]\INI Manager\INIManager.h"
+#include "Construction Set Extender\CSEInterfaceAPI.h"
 
 using namespace SME;
 using namespace INI;
@@ -23,10 +25,9 @@ using namespace INI;
 #define SAVE_VERSION									3
 #define MAX_BACKUPS										5
 
-//	TODO +++++++++++++++++++
-
 extern const char*										g_HookMessage;
 extern char												g_Buffer[0x4000];
+extern OBSEScriptInterface*								g_OBSEScriptInterface;
 
 #if OBLIVION_VERSION == OBLIVION_VERSION_1_2_416
 	const UInt32 kConsolePrintHookAddr = 0x00585D2E;
@@ -50,7 +51,6 @@ extern ConScribeINIManager*		g_INIManager;
 
 class ConScribeLog 
 {
-	ConScribeLog();
 protected:
 	std::fstream										FileStream;
 	char*												FilePath;

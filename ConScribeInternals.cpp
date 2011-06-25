@@ -31,9 +31,11 @@ char						g_Buffer[0x4000];
 void ConScribeINIManager::Initialize()
 {
 	_MESSAGE("INI Path: %s", GetINIPath());
+	bool CreateINI = false;
 	std::fstream INIStream(GetINIPath(), std::fstream::in);
 
-	if (INIStream.fail()) {
+	if (INIStream.fail()) 
+	{
 		CreateINI = true;			
 		_MESSAGE("INI File not found; Creating one...");
 	}
@@ -41,12 +43,16 @@ void ConScribeINIManager::Initialize()
 	INIStream.close();
 	INIStream.clear();
 
-	RegisterSetting(new INISetting(this, "ScribeMode", "ConsoleLog", "Static"));
-	RegisterSetting(new INISetting(this, "Includes", "ConsoleLog", ""));
-	RegisterSetting(new INISetting(this, "Excludes", "ConsoleLog", ""));
-	RegisterSetting(new INISetting(this, "TimeFormat", "General", "%m-%d-%Y %H-%M-%S"));
-	RegisterSetting(new INISetting(this, "LogBackups", "General", "-1"));
-	RegisterSetting(new INISetting(this, "RootDirectory", "General", "Default"));
+	RegisterSetting(new INISetting(this, "ScribeMode", "ConsoleLog", "Static", "The mode of logging used by the console log(s)"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "Includes", "ConsoleLog", "", "Include string"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "Excludes", "ConsoleLog", "", "Exclude string"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "TimeFormat", "General", "%m-%d-%Y %H-%M-%S", "Data format string"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "LogBackups", "General", "-1", "Number of log backups"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "RootDirectory", "General", "Default", "Location of the ConScribe logs folder"), (CreateINI == false));
+	RegisterSetting(new INISetting(this, "SaveDataToCoSave", "General", "1", "Save log registeration data to the OBSE co-save"), (CreateINI == false));
+
+	if (CreateINI)		SaveSettingsToINI();
+	else				ReadSettingsFromINI();
 }
 
 // CONSCRIBE LOG
@@ -105,8 +111,10 @@ void ConScribeLog::AppendLoadHeader()
 
 void ConScribeLog::ReadAllLines(std::vector<std::string>& LogContents)
 {
-	if (!FileStream.fail())	{
-		while (!FileStream.eof()) {
+	if (!FileStream.fail())
+	{
+		while (!FileStream.eof())
+		{
 			FileStream.getline(g_Buffer, sizeof(g_Buffer));
 			LogContents.push_back(g_Buffer);
 		}
@@ -119,8 +127,10 @@ UInt32 ConScribeLog::GetLineCount(void)
 {
 	UInt32 LineCount = 0;
 
-	if (!FileStream.fail())	{
-		while (!FileStream.eof()) {
+	if (!FileStream.fail())	
+	{
+		while (!FileStream.eof()) 
+		{
 			FileStream.getline(g_Buffer, sizeof(g_Buffer));
 			LineCount++;
 		}
@@ -136,12 +146,13 @@ void ConScribeLog::DeleteSlice(UInt32 Lower, UInt32 Upper)
 	std::fstream TempLog(TempPath.c_str(), std::fstream::out);
 	UInt32 LineCount = 1;
 
-	if (!FileStream.fail())	{
-		while (!FileStream.eof()) {
+	if (!FileStream.fail())
+	{
+		while (!FileStream.eof()) 
+		{
 			FileStream.getline(g_Buffer, sizeof(g_Buffer));
-			if (LineCount > Upper || LineCount < Lower) {
-				TempLog << g_Buffer << "\n";
-			}				
+			if (LineCount > Upper || LineCount < Lower)
+				TempLog << g_Buffer << "\n";			
 			LineCount++;
 		}
 
@@ -150,7 +161,8 @@ void ConScribeLog::DeleteSlice(UInt32 Lower, UInt32 Upper)
 		TempLog.clear();
 		Close();
 
-		if (!MoveFileEx(TempPath.c_str(), FilePath, MOVEFILE_REPLACE_EXISTING)) {
+		if (!MoveFileEx(TempPath.c_str(), FilePath, MOVEFILE_REPLACE_EXISTING))
+		{
 			_MESSAGE("DeleteSlice failed! Existing Name = %s ; New Name = %s", TempPath.c_str(), FilePath);
 			LogWinAPIErrorMessage(GetLastError());
 		}
@@ -164,8 +176,8 @@ void ConScribeLog::DeleteSlice(UInt32 Lower, UInt32 Upper)
 void ConsoleLog::WriteOutput(const char* Message)
 {
 	if (!Message)												return;
-	std::string Includes(g_INIManager->GET_INI_STRING("Includes")), 
-				Excludes(g_INIManager->GET_INI_STRING("Excludes"));
+	std::string Includes(g_INIManager->GetINIStr("Includes")), 
+				Excludes(g_INIManager->GetINIStr("Excludes"));
 
 	if (Includes != "" && !GetInString(Message, Includes))		return;
 	if (Excludes != "" && GetInString(Message, Includes) > 0)	return;
@@ -175,10 +187,12 @@ void ConsoleLog::WriteOutput(const char* Message)
 
 void ConsoleLog::HandleLoadCallback(void)
 {
-	if (!_stricmp(g_INIManager->GET_INI_STRING("ScribeMode"), "PerLoad")) {
-		g_ConsoleLog->Open(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
+	if (!_stricmp(g_INIManager->GetINIStr("ScribeMode"), "PerLoad"))
+	{
+		g_ConsoleLog->Open(std::string(std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Log of " + GetTimeString() + ".log").c_str(), ConScribeLog::e_Out);
 	}
-	else		AppendLoadHeader();
+	else
+		AppendLoadHeader();
 }
 
 
@@ -197,7 +211,8 @@ LogManager*	LogManager::Singleton = NULL;
 
 LogManager*	LogManager::GetSingleton()
 {
-	if (!Singleton) {
+	if (!Singleton)
+	{
 		Singleton = new LogManager;
 	}
 	return Singleton;
@@ -207,11 +222,13 @@ void LogManager::DumpDatabase()
 {
 	_MESSAGE("Registered Logs\n================\n");
 
-	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) {
+	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++)
+	{
 		_MESSAGE("%s : [ default: %s ]", Itr->first.c_str(), GetDefaultLog(Itr->first.c_str()));
 
 		std::vector<std::string>::const_iterator ItrVec = Itr->second->RegisteredLogs.begin();
-		while (ItrVec != Itr->second->RegisteredLogs.end()) {
+		while (ItrVec != Itr->second->RegisteredLogs.end())
+		{
 			_MESSAGE("\t%s", ItrVec->c_str());
 			ItrVec++;
 		}
@@ -221,15 +238,16 @@ void LogManager::DumpDatabase()
 
 void LogManager::PurgeDatabase()
 {
-	for (_LogDB::iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) {
+	for (_LogDB::iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++)
 		delete Itr->second;
-	}
+
 	LogDB.clear();
 }
 
 bool LogManager::IsModRegistered(const char* ModName)
 {
-	for (_LogDB::iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) {
+	for (_LogDB::iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++)
+	{
 		if (!_stricmp(ModName, Itr->first.c_str()))
 			return true;
 	}
@@ -241,7 +259,8 @@ bool LogManager::IsLogRegistered(const char* ModName, const char* LogName)
 	if (!IsModRegistered(ModName))		return false;
 
 	std::vector<std::string>* LogList = &(LogDB.find(ModName)->second->RegisteredLogs);
-	for (std::vector<std::string>::iterator Itr = LogList->begin(); Itr != LogList->end(); Itr++) {
+	for (std::vector<std::string>::iterator Itr = LogList->begin(); Itr != LogList->end(); Itr++) 
+	{
 		if (!_stricmp(LogName, Itr->c_str()))
 			return true;
 	}
@@ -250,10 +269,14 @@ bool LogManager::IsLogRegistered(const char* ModName, const char* LogName)
 
 bool LogManager::IsLogRegistered(const char* LogName)
 {
-	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) {
+	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++)
+	{
 		std::vector<std::string>::const_iterator ItrVec = Itr->second->RegisteredLogs.begin();
-		while (ItrVec != Itr->second->RegisteredLogs.end()) {
-			if (!_stricmp(LogName, ItrVec->c_str()))			return true;
+		while (ItrVec != Itr->second->RegisteredLogs.end())
+		{
+			if (!_stricmp(LogName, ItrVec->c_str()))
+				return true;
+
 			ItrVec++;
 		}
 	}
@@ -270,17 +293,22 @@ void LogManager::RegisterMod(const char* ModName)
 
 void LogManager::SetDefaultLog(const char* ModName, const char* LogName)
 {
-	if (!IsModRegistered(ModName))					return;
-	else if (!LogName) {
+	if (!IsModRegistered(ModName))
+		return;
+	else if (!LogName)
+	{
 		LogDB[ModName]->DefaultLog = -1;
 		_MESSAGE("Default log for '%s' reset", ModName);
 		return;
 	}
-	else if (!IsLogRegistered(ModName, LogName))	return;
+	else if (!IsLogRegistered(ModName, LogName))
+		return;
 
 	int Idx = 0;
-	for (std::vector<std::string>::const_iterator Itr = LogDB[ModName]->RegisteredLogs.begin(); Itr != LogDB[ModName]->RegisteredLogs.end(); Itr++, Idx++) {
-		if (!_stricmp(LogName, Itr->c_str()) && LogDB[ModName]->DefaultLog != Idx) {
+	for (std::vector<std::string>::const_iterator Itr = LogDB[ModName]->RegisteredLogs.begin(); Itr != LogDB[ModName]->RegisteredLogs.end(); Itr++, Idx++)
+	{
+		if (!_stricmp(LogName, Itr->c_str()) && LogDB[ModName]->DefaultLog != Idx)
+		{
 			LogDB[ModName]->DefaultLog = Idx;
 			_MESSAGE("Default log index for '%s' set to %d", ModName, Idx);
 			return;
@@ -322,11 +350,15 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 	else if (!IsLogRegistered(ModName, LogName))	return;
 
 	int Idx = 0;
-	for (std::vector<std::string>::const_iterator Itr = LogDB[ModName]->RegisteredLogs.begin(); Itr != LogDB[ModName]->RegisteredLogs.end(); Itr++, Idx++) {
-		if (!_stricmp(LogName, Itr->c_str())) {
+	for (std::vector<std::string>::const_iterator Itr = LogDB[ModName]->RegisteredLogs.begin(); Itr != LogDB[ModName]->RegisteredLogs.end(); Itr++, Idx++) 
+	{
+		if (!_stricmp(LogName, Itr->c_str()))
+		{
 			LogDB[ModName]->RegisteredLogs.erase(Itr);
 			_MESSAGE("Mod '%s' unregistered log '%s'", ModName, LogName);
-			if (LogDB[ModName]->DefaultLog == Idx )		SetDefaultLog(ModName, (const char*)NULL);
+			if (LogDB[ModName]->DefaultLog == Idx )
+				SetDefaultLog(ModName, (const char*)NULL);
+
 			return;
 		}
 	}
@@ -334,7 +366,8 @@ void LogManager::UnregisterLog(const char* ModName, const char* LogName)
 
 void LogManager::UnregisterLog(const char* ModName)
 {
-	if (!IsModRegistered(ModName))					return;
+	if (!IsModRegistered(ModName))	
+		return;
 
 	LogDB[ModName]->RegisteredLogs.clear();
 }
@@ -343,21 +376,29 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 {
 	std::string MessageBuffer(Message), LogName, FilePath, FormID;
 	std::string::size_type PipeIdx = MessageBuffer.rfind("|");
-	if (PipeIdx != std::string::npos) {
+	if (PipeIdx != std::string::npos) 
+	{
 		LogName = MessageBuffer.substr(PipeIdx + 1, MessageBuffer.length() - 1);
 		MessageBuffer.erase(PipeIdx, MessageBuffer.length() - 1);
 	}
 
 	UInt32 ScribeOperation = 0;
-	if (LogName == "")	{
-		if (!GetDefaultLog(ModName))						ScribeOperation = e_Script;
-		else												ScribeOperation = e_Default;
+	if (LogName == "")	
+	{
+		if (!GetDefaultLog(ModName))
+			ScribeOperation = e_Script;
+		else	
+			ScribeOperation = e_Default;
 	}
-	else if (!_stricmp(LogName.c_str(), "Script"))			ScribeOperation = e_Script;
-	else if (!IsLogRegistered(ModName, LogName.c_str()))	return;
-	else													ScribeOperation = e_Mod;
+	else if (!_stricmp(LogName.c_str(), "Script"))
+		ScribeOperation = e_Script;
+	else if (!IsLogRegistered(ModName, LogName.c_str()))
+		return;
+	else								
+		ScribeOperation = e_Mod;
 
-	if (PrintC) {
+	if (PrintC)
+	{
 		if (MessageBuffer.length() < 512)
 			Console_Print(MessageBuffer.c_str());
 		else
@@ -370,13 +411,13 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 		char Buffer[0x10];
 		_sprintf_p(Buffer, sizeof(Buffer), "%08X", RefID);
 		FormID = Buffer; FormID.erase(0,2);
-		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
+		FilePath = std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Script\\" + std::string(ModName) + " - [XX]" + FormID + ".log";
 		break;
 	case e_Mod:
-		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+		FilePath = std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
 		break;
 	case e_Default:
-		FilePath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
+		FilePath = std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(GetDefaultLog(ModName)) + ".log";
 		break;
 	}
 
@@ -386,20 +427,35 @@ void LogManager::ScribeToLog(const char* Message, const char* ModName, UInt32 Re
 
 LogData* LogManager::GetModLogData(const char* ModName)
 {
-	if (!IsModRegistered(ModName))		return NULL;
+	if (!IsModRegistered(ModName))	
+		return NULL;
+
 	return LogDB[ModName];
 }
 
-void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// record types:
-{																			//		CSMN - mod name. starting record	(string)
-	_MESSAGE("\nLoadGame callback! Reading records ...\n");					//		CSRL - registered log				(string)
-	PurgeDatabase();														//		CSDI - default log index			(signed int)					
-																			//		CSEC - end of chunk. final record	(signed int/null)
-	UInt32	Type, Version, Length;											// records are expected in the same order :
-	char Buffer[0x200], ModName[0x200];										//		CSMN, CSRL(N)..., CSDI, CSEC, ...
+/* 	serialization data:
+	CSMN - mod name. starting record	(string)
+	CSRL - registered log				(string)
+	CSDI - default log index			(signed int)					
+
+	CSEC - end of chunk. final record	(signed int/null)
+	records are expected in the same order :
+	CSMN, CSRL...(n), CSDI, CSEC, ... 
+*/
+
+void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)
+{																																					
+	PurgeDatabase();
+	if (g_INIManager->GetINIInt("SaveDataToCoSave"))
+		return;
+
+	_MESSAGE("\nLoadGame callback! Reading records ...\n");					
+	UInt32	Type, Version, Length;											
+	char Buffer[0x200], ModName[0x200];										
 	int Idx;
 
-	while (Interface->GetNextRecordInfo(&Type, &Version, &Length)) {
+	while (Interface->GetNextRecordInfo(&Type, &Version, &Length))
+	{
 		switch (Type)
 		{
 		case 'CSRB':		
@@ -411,17 +467,20 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 			ModName[Length] = 0;
 
 			const ModEntry* ParentMod = (*g_dataHandler)->LookupModByName(ModName);
-			if (!ModName || !ParentMod || !ParentMod->IsLoaded()) {
+			if (!ModName || !ParentMod || !ParentMod->IsLoaded())
+			{
 				_MESSAGE("Mod %s is not loaded/Invalid Mod. Skipping corresponding records ...", ModName);
 				do { Interface->GetNextRecordInfo(&Type, &Version, &Length); } 
 				while (Type != 'CSEC');
+
 				continue;
 			}
 
 			RegisterMod(ModName);
 
 			Interface->GetNextRecordInfo(&Type, &Version, &Length);
-			while (Type != 'CSEC') {
+			while (Type != 'CSEC')
+			{
 				switch (Type) 
 				{
 				case 'CSRL':
@@ -437,8 +496,10 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 					_MESSAGE("Error encountered while loading data from cosave - Unexpected type %.4s", &Type);
 					break;
 				}
+
 				Interface->GetNextRecordInfo(&Type, &Version, &Length);
 			}
+
 			Interface->ReadRecordData(&Idx, Length);
 			break;
 		} 
@@ -450,14 +511,18 @@ void LogManager::DoLoadCallback(OBSESerializationInterface* Interface)		// recor
 
 void LogManager::DoSaveCallback(OBSESerializationInterface* Interface)
 {	
-	_MESSAGE("\nSaveGame callback! Dumping records ...");
+	if (g_INIManager->GetINIInt("SaveDataToCoSave"))
+		return;
 
+	_MESSAGE("\nSaveGame callback! Dumping records ...");
 	int EC = 0;
-	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) {
+	for (_LogDB::const_iterator Itr = LogDB.begin(); Itr != LogDB.end(); Itr++) 
+	{
 		Interface->WriteRecord('CSMN', SAVE_VERSION, Itr->first.c_str(), Itr->first.length());
 
 		std::vector<std::string>::const_iterator ItrVec = Itr->second->RegisteredLogs.begin();
-		while (ItrVec != Itr->second->RegisteredLogs.end()) {
+		while (ItrVec != Itr->second->RegisteredLogs.end()) 
+		{
 			Interface->WriteRecord('CSRL', SAVE_VERSION, ItrVec->c_str(), ItrVec->length());			
 			ItrVec++;
 		}
@@ -476,7 +541,8 @@ void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 	std::string ModName = Record.substr(0, DelimiterIdx), LogList = Record.erase(0, DelimiterIdx + 1);
 
 	const ModEntry* ParentMod = (*g_dataHandler)->LookupModByName(ModName.c_str());
-	if (!ParentMod || !ParentMod->IsLoaded()) {
+	if (!ParentMod || !ParentMod->IsLoaded())
+	{
 		_MESSAGE("Mod %s is not loaded. Skipping corresponding records ...", ModName.c_str());
 		return;
 	}
@@ -484,9 +550,11 @@ void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 	RegisterMod(ModName.c_str());
 	DelimiterIdx = 0;
 
-	while (DelimiterIdx <= LogList.length()) {
+	while (DelimiterIdx <= LogList.length())
+	{
 		DelimiterIdx = LogList.find(";");
-		if (DelimiterIdx == std::string::npos)			break;
+		if (DelimiterIdx == std::string::npos)
+			break;
 
 		RegisterLog(ModName.c_str(), LogList.substr(0, DelimiterIdx).c_str());
 		LogList.erase(0, DelimiterIdx + 1);
@@ -498,20 +566,24 @@ void LogManager::ConvertDeprecatedRecordCSRB(std::string Record)
 
 void LogManager::DeleteSliceFromLog(const char* ModName, const char* LogName, UInt32 Lower, UInt32 Upper)
 {
-	if (!IsModRegistered(ModName))					return;
-	else if (!IsLogRegistered(ModName, LogName))	return;
+	if (!IsModRegistered(ModName))
+		return;
+	else if (!IsLogRegistered(ModName, LogName))
+		return;
 
-	std::string LogPath =  std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+	std::string LogPath =  std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
 	ConScribeLog TempLog(LogPath.c_str(), ConScribeLog::e_In);
 	TempLog.DeleteSlice(Lower, Upper);
 }
 
 int LogManager::GetLogLineCount(const char* ModName, const char* LogName)
 {
-	if (!IsModRegistered(ModName))					return 0;
-	else if (!IsLogRegistered(ModName, LogName))	return 0;
+	if (!IsModRegistered(ModName))		
+		return 0;
+	else if (!IsLogRegistered(ModName, LogName))
+		return 0;
 
-	std::string LogPath =  std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
+	std::string LogPath =  std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + LogName + ".log";
 	ConScribeLog TempLog(LogPath.c_str(), ConScribeLog::e_In);
 	return TempLog.GetLineCount();
 }
@@ -529,7 +601,8 @@ std::string GetTimeString(void)
 	_time32(&TimeData);
 	_localtime32_s(&LocalTime, &TimeData);
 
-	if (!strftime(TimeString, sizeof(TimeString), g_INIManager->GET_INI_STRING("TimeFormat"), &LocalTime)) {
+	if (!strftime(TimeString, sizeof(TimeString), g_INIManager->GetINIStr("TimeFormat"), &LocalTime))
+	{
 		_MESSAGE("Couldn't parse TimeFormat string. Using default format");
 		strftime(TimeString, sizeof(TimeString), "%m-%d-%Y %H-%M-%S", &LocalTime);
 	}
@@ -542,13 +615,17 @@ UInt32 GetInString(std::string String1, std::string String2)
 	std::string Extract;
 	UInt32 Hits = 0;
 
-	if (String2[String2.length() - 1] != ';')				String2 += ";";
+	if (String2[String2.length() - 1] != ';')
+		String2 += ";";
 
-	while (String2.find(";") != std::string::npos) {
+	while (String2.find(";") != std::string::npos)
+	{
 		Idx = String2.find(";");
 		Extract = String2.substr(0, Idx);	
 
-		if (String1.find(Extract) != std::string::npos)		Hits++;
+		if (String1.find(Extract) != std::string::npos)
+			Hits++;
+
 		String2.erase(0, Idx + 1);
 	}
 	return Hits;
@@ -573,22 +650,26 @@ void LogWinAPIErrorMessage(DWORD ErrorID)
 
 bool CreateLogDirectories()
 {
-	std::string LogDirectory = g_INIManager->GET_INI_STRING("RootDirectory");
-	if (LogDirectory[LogDirectory.length() - 1] != '\\')	LogDirectory += "\\";			// append leading backward slash when not found
+	std::string LogDirectory = g_INIManager->GetINIStr("RootDirectory");
+	if (LogDirectory[LogDirectory.length() - 1] != '\\')
+		LogDirectory += "\\";			// append leading backward slash when not found
 
 	if ((CreateDirectory((LogDirectory + "ConScribe Logs").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
 		(CreateDirectory((LogDirectory + "ConScribe Logs\\Per-Script").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)||
-		(CreateDirectory((LogDirectory + "ConScribe Logs\\Per-Mod").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS)) {
-			_MESSAGE("Error encountered while creating log directories");
-			LogWinAPIErrorMessage(GetLastError());
-			return false;
+		(CreateDirectory((LogDirectory + "ConScribe Logs\\Per-Mod").c_str(), NULL) == 0 && GetLastError() != ERROR_ALREADY_EXISTS))
+	{
+		_MESSAGE("Error encountered while creating log directories");
+		LogWinAPIErrorMessage(GetLastError());
+		return false;
 	}
+
 	return true;
 }
 
 void PerformHouseKeeping(const char* DirectoryPath, const char* File, HouseKeepingOps Operation)
 {
-	for (IDirectoryIterator Itr(DirectoryPath, File); !Itr.Done(); Itr.Next()) {
+	for (IDirectoryIterator Itr(DirectoryPath, File); !Itr.Done(); Itr.Next())
+	{
 		switch (Operation)
 		{
 		case e_BackupLogs:
@@ -606,7 +687,7 @@ void PerformHouseKeeping(const char* DirectoryPath, const char* File, HouseKeepi
 
 void DoBackup(std::string FilePath, std::string FileName)
 {
-	int NoOfBackups = g_INIManager->GET_INI_INT("LogBackups"), ID = 0;
+	int NoOfBackups = g_INIManager->GetINIInt("LogBackups"), ID = 0;
 	if (NoOfBackups == -1)
 		return;													// a time header is appended instead
 	else if (NoOfBackups > MAX_BACKUPS)
@@ -618,17 +699,22 @@ void DoBackup(std::string FilePath, std::string FileName)
 
 	sprintf_s(Buffer, sizeof(Buffer), "%d", ID);
 	std::fstream FileStream(std::string(FilePath + "\\" + FileNameExt + ".log" + std::string(Buffer)).c_str(), std::fstream::in);
-	while (FileStream.fail() && ID <= NoOfBackups) {
+	while (FileStream.fail() && ID <= NoOfBackups)
+	{
 		ID++;
 		sprintf_s(Buffer, sizeof(Buffer), "%d", ID);
 		FileStream.close(), FileStream.clear();
 		FileStream.open(std::string(FilePath + "\\" + FileNameExt + ".log" + std::string(Buffer)).c_str(), std::fstream::in);
 	}
+
 	FileStream.close(), FileStream.clear();
 
-	if (ID == NoOfBackups) {									// delete file
-		if (DeleteFileA(FullPath.c_str()))				_MESSAGE("Deleted '%s'", FullPath.c_str());
-		else {
+	if (ID == NoOfBackups)
+	{									// delete file
+		if (DeleteFileA(FullPath.c_str()))	
+			_MESSAGE("Deleted '%s'", FullPath.c_str());
+		else 
+		{
 			_MESSAGE("Couldn't delete '%s'", FullPath.c_str());
 			LogWinAPIErrorMessage(GetLastError());			
 		}
@@ -644,7 +730,8 @@ void DoBackup(std::string FilePath, std::string FileName)
 
 	if (MoveFileEx(FullPath.c_str(), NewName.c_str(), MOVEFILE_REPLACE_EXISTING))		
 		_MESSAGE("Renamed '%s' to '%s'", FullPath.c_str(), NewName.c_str());
-	else {
+	else
+	{
 		_MESSAGE("Couldn't rename '%s'", FullPath.c_str());
 		LogWinAPIErrorMessage(GetLastError());
 	}

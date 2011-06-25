@@ -9,7 +9,7 @@ static bool Cmd_ConScribe_Scribe_Execute(COMMAND_ARGS)
 	const char* ModName = ResolveModName(scriptObj);
 	char Buffer[kMaxMessageLength];
 
-	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_Scribe.numParams, &PrintC))
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_Scribe.numParams, &PrintC))
 		return true;
 	else if (Buffer == NULL || ModName == NULL)
 		return true;
@@ -26,10 +26,13 @@ static bool Cmd_ConScribe_RegisterLog_Execute(COMMAND_ARGS)
 	const char* ModName = ResolveModName(scriptObj);
 	*result = 0;
 
-	if (Buffer == NULL || ModName == NULL) {
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_RegisterLog.numParams, &DefaultFlag))
+	{
 		*result = -1;
 		return true;
-	} else if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_RegisterLog.numParams, &DefaultFlag)) {
+	}
+	else if (Buffer == NULL || ModName == NULL)
+	{
 		*result = -1;
 		return true;
 	}
@@ -39,11 +42,14 @@ static bool Cmd_ConScribe_RegisterLog_Execute(COMMAND_ARGS)
 	static std::string InvalidChars = "\\/*:?\"<>;|.";
 
 	std::string StringBuffer(Buffer);
-	if (StringBuffer.find_first_of(InvalidChars) != std::string::npos) {
+	if (StringBuffer.find_first_of(InvalidChars) != std::string::npos) 
+	{
 		_MESSAGE("Invalid log name '%s' passed in script %08x", Buffer, scriptObj->refID);
 		*result = -1;
 		return true;
-	} else if (LogManager::GetSingleton()->IsLogRegistered(Buffer)) {
+	} 
+	else if (LogManager::GetSingleton()->IsLogRegistered(Buffer))
+	{
 		_MESSAGE("Log name '%s' passed in script %08x already registered", Buffer, scriptObj->refID);
 		*result = -1;
 		return true;
@@ -51,7 +57,9 @@ static bool Cmd_ConScribe_RegisterLog_Execute(COMMAND_ARGS)
 	
 	LogManager::GetSingleton()->RegisterLog(ModName, Buffer);
 
-	if (DefaultFlag)			LogManager::GetSingleton()->SetDefaultLog(ModName, Buffer);
+	if (DefaultFlag)
+		LogManager::GetSingleton()->SetDefaultLog(ModName, Buffer);
+
 	return true;
 }
 
@@ -64,28 +72,35 @@ static bool Cmd_ConScribe_UnregisterLog_Execute(COMMAND_ARGS)
 	const char* ModName = ResolveModName(scriptObj);
 	*result = 0;
 
-	if (Buffer == NULL || ModName == NULL)
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_UnregisterLog.numParams, &DefaultFlag, &DeleteFlag))
 		return true;
-	else if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_UnregisterLog.numParams, &DefaultFlag, &DeleteFlag))
+	else if (Buffer == NULL || ModName == NULL)
 		return true;
 
-	if (!_stricmp(Buffer, "*.*")) {
-		if (!DefaultFlag) { 		
+	if (!_stricmp(Buffer, "*.*"))
+	{
+		if (!DefaultFlag)
+		{ 		
 			_MESSAGE("Mod '%s' unregistered all of its logs", ModName);
 			LogManager::GetSingleton()->UnregisterLog(ModName);
 			DeleteFlag = 0;
-		} else if (DeleteFlag) {
+		} 
+		else if (DeleteFlag)
+		{
 			sprintf_s(Buffer, kMaxMessageLength, "%s", LogManager::GetSingleton()->GetDefaultLog(ModName));
 		}
+
 		LogManager::GetSingleton()->SetDefaultLog(ModName, (const char*)NULL);
 	}
 	else	
 		LogManager::GetSingleton()->UnregisterLog(ModName, Buffer);
 
-	if (DeleteFlag) {
-		if (DeleteFile(std::string(std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str()))
+	if (DeleteFlag)
+	{
+		if (DeleteFile(std::string(std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log").c_str()))
 			_MESSAGE("Deleted '%s'", Buffer);
-		else {
+		else 
+		{
 			_MESSAGE("Couldn't delete '%s'", Buffer);
 			LogWinAPIErrorMessage(GetLastError());
 		}
@@ -99,14 +114,15 @@ static bool Cmd_ConScribe_GetRegisteredLogNames_Execute(COMMAND_ARGS)
 	*result = 0;
 	const char* ModName = ResolveModName(scriptObj);
 
-	if (ModName == NULL)	return true;
+	if (ModName == NULL)
+		return true;
 
 	LogManager::GetSingleton()->RegisterMod(ModName);
 
 	std::vector<OBSEElement> LogList;
-	for (std::vector<std::string>::const_iterator Itr = LogManager::GetSingleton()->GetModLogData(ModName)->RegisteredLogs.begin(); Itr != LogManager::GetSingleton()->GetModLogData(ModName)->RegisteredLogs.end(); Itr++) {
+	for (std::vector<std::string>::const_iterator Itr = LogManager::GetSingleton()->GetModLogData(ModName)->RegisteredLogs.begin(); Itr != LogManager::GetSingleton()->GetModLogData(ModName)->RegisteredLogs.end(); Itr++)
 		LogList.push_back(Itr->c_str());
-	}
+
 	std::map<std::string, OBSEElement> OBSEStringMap;
 
 	OBSEArray* OBSEVector = ArrayFromStdVector(LogList, scriptObj);
@@ -116,8 +132,10 @@ static bool Cmd_ConScribe_GetRegisteredLogNames_Execute(COMMAND_ARGS)
 	
 	OBSEArray* ResultArray = StringMapFromStdMap(OBSEStringMap, scriptObj);
 
-	if (!ResultArray)													_MESSAGE("Couldn't create array. Passed in script %08x", scriptObj->refID);
-	else if (!g_arrayIntfc->AssignCommandResult(ResultArray, result))	_MESSAGE("Couldn't assign result array. Passed in script %08x", scriptObj->refID);
+	if (!ResultArray)
+		_MESSAGE("Couldn't create array. Passed in script %08x", scriptObj->refID);
+	else if (!g_arrayIntfc->AssignCommandResult(ResultArray, result))
+		_MESSAGE("Couldn't assign result array. Passed in script %08x", scriptObj->refID);
 
 	return true;
 }
@@ -128,7 +146,7 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 	const char * ModName = ResolveModName(scriptObj);
 	char Buffer[kMaxMessageLength];
 
-	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_ReadFromLog.numParams))
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_ReadFromLog.numParams))
 		return true;
 	else if (Buffer == NULL || ModName == NULL)
 		return true;
@@ -137,10 +155,12 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 	std::vector<OBSEElement> LogContents;
 
 	if (!_stricmp(Buffer, "*.*") && LogManager::GetSingleton()->GetDefaultLog(ModName))
-		LogPath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
+		LogPath = std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(LogManager::GetSingleton()->GetDefaultLog(ModName)) + ".log";
 	else if (LogManager::GetSingleton()->IsLogRegistered(ModName, Buffer))
-		LogPath = std::string(g_INIManager->GET_INI_STRING("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
-	else		return true;
+		LogPath = std::string(g_INIManager->GetINIStr("RootDirectory")) + "ConScribe Logs\\Per-Mod\\" + std::string(Buffer) + ".log";
+	else
+		return true;
+
 	LogContents.push_back(LogPath.c_str());
 
 	std::vector<std::string> STLVector;
@@ -149,13 +169,18 @@ static bool Cmd_ConScribe_ReadFromLog_Execute(COMMAND_ARGS)
 
 	OBSEArray* ResultArray = ArrayFromStdVector(LogContents, scriptObj);
 
-	for (std::vector<std::string>::const_iterator Itr = STLVector.begin(); Itr != STLVector.end(); Itr++) {
-		if (Itr == STLVector.end() - 1 && Itr->begin() == Itr->end())		continue;		// skip empty last lines
+	for (std::vector<std::string>::const_iterator Itr = STLVector.begin(); Itr != STLVector.end(); Itr++)
+	{
+		if (Itr == STLVector.end() - 1 && Itr->begin() == Itr->end())
+			continue;		// skip empty last lines
+
 		g_arrayIntfc->AppendElement(ResultArray, Itr->c_str());
 	}
 
-	if (!ResultArray)													_MESSAGE("Couldn't create array. Passed in script %08x", scriptObj->refID);
-	else if (!g_arrayIntfc->AssignCommandResult(ResultArray, result))	_MESSAGE("Couldn't assign result array. Passed in script %08x", scriptObj->refID);
+	if (!ResultArray)	
+		_MESSAGE("Couldn't create array. Passed in script %08x", scriptObj->refID);
+	else if (!g_arrayIntfc->AssignCommandResult(ResultArray, result))
+		_MESSAGE("Couldn't assign result array. Passed in script %08x", scriptObj->refID);
 
 	return true;
 }
@@ -166,7 +191,7 @@ static bool Cmd_ConScribe_GetLogLineCount_Execute(COMMAND_ARGS)
 	char Buffer[kMaxMessageLength];
 	*result = 0;
 
-	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_GetLogLineCount.numParams))
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_GetLogLineCount.numParams))
 		return true;
 	else if (Buffer == NULL || ModName == NULL)
 		return true;
@@ -183,12 +208,13 @@ static bool Cmd_ConScribe_DeleteLinesFromLog_Execute(COMMAND_ARGS)
 	char Buffer[kMaxMessageLength];
 	*result = -1;
 
-	if (!ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_DeleteLinesFromLog.numParams, &LowerLimit, &UpperLimit))
+	if (!g_OBSEScriptInterface->ExtractFormatStringArgs(0, Buffer, paramInfo, arg1, opcodeOffsetPtr, scriptObj, eventList, kCommandInfo_DeleteLinesFromLog.numParams, &LowerLimit, &UpperLimit))
 		return true;
 	else if (Buffer == NULL || ModName == NULL)
 		return true;
 
-	if (LowerLimit > UpperLimit) {
+	if (LowerLimit > UpperLimit)
+	{
 		_MESSAGE("Invalid slice passed to DeleteLinesFromLog in script %08x", scriptObj->refID);		
 		return true;
 	}
@@ -333,9 +359,12 @@ CommandInfo kCommandInfo_DeleteLinesFromLog =
 
 inline const char* ResolveModName(Script* ScriptObj)
 {
-	if (ScriptObj->GetModIndex() != 0xFF) {
-		if (!(*g_dataHandler)->GetNthModName(ScriptObj->GetModIndex()))		_MESSAGE("Error encountered while resolving mod name. ModIndex - %02x", ScriptObj->refID);
-		else																return (*g_dataHandler)->GetNthModName(ScriptObj->GetModIndex());
+	if (ScriptObj->GetModIndex() != 0xFF)
+	{
+		if (!(*g_dataHandler)->GetNthModName(ScriptObj->GetModIndex()))	
+			_MESSAGE("Error encountered while resolving mod name. ModIndex - %02x", ScriptObj->refID);
+		else	
+			return (*g_dataHandler)->GetNthModName(ScriptObj->GetModIndex());
 	}
 	return NULL;
 }
@@ -344,9 +373,8 @@ OBSEArray* StringMapFromStdMap(const std::map<std::string, OBSEElement>& Data, S
 {
 	OBSEArray* Arr = g_arrayIntfc->CreateStringMap(NULL, NULL, 0, CallingScript);
 
-	for (std::map<std::string, OBSEElement>::const_iterator Itr = Data.begin(); Itr != Data.end(); ++Itr) {
+	for (std::map<std::string, OBSEElement>::const_iterator Itr = Data.begin(); Itr != Data.end(); ++Itr)
 		g_arrayIntfc->SetElement(Arr, Itr->first.c_str(), Itr->second);
-	}
 
 	return Arr;
 }
