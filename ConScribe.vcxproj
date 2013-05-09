@@ -50,6 +50,12 @@
     <CodeAnalysisRules Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
     <CodeAnalysisRuleAssemblies Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" />
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <IncludePath>C:\Users\shadeMe\Desktop\[TES]\[Code]\[OBSE]\[Libraries]\BGSEditorExtenderBase\BGSEEScript;$(IncludePath)</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <IncludePath>C:\Users\shadeMe\Desktop\[TES]\[Code]\[OBSE]\[Libraries]\BGSEditorExtenderBase\BGSEEScript;$(IncludePath)</IncludePath>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
@@ -77,6 +83,12 @@
       <Message>Installing DLL...</Message>
       <Command>copy "$(TargetPath)" "$(OblivionPath)\data\obse\plugins\$(TargetName)$(TargetExt)"</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>cscript.exe "$(SolutionDir)\BuildIncrement.jse"</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Setting build number...</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -107,6 +119,12 @@
       <Message>Installing DLL...</Message>
       <Command>copy "$(TargetPath)" "$(OblivionPath)\data\obse\plugins\$(TargetName)$(TargetExt)"</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>cscript.exe "$(SolutionDir)\BuildIncrement.jse"</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>Setting build number...</Message>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\common\common.vcxproj">
@@ -130,7 +148,10 @@
     <ClCompile Include="..\obse\obse_common\SafeWrite.cpp" />
     <ClCompile Include="..\obse\obse\Script.cpp" />
     <ClCompile Include="..\obse\obse\Utilities.cpp" />
-    <ClCompile Include="..\[Libraries]\INI Manager\INIManager.cpp" />
+    <ClCompile Include="..\[Libraries]\SME Sundries\INIManager.cpp" />
+    <ClCompile Include="..\[Libraries]\SME Sundries\MemoryHandler.cpp" />
+    <ClCompile Include="..\[Libraries]\SME Sundries\MiscGunk.cpp" />
+    <ClCompile Include="..\[Libraries]\SME Sundries\StringHelpers.cpp" />
     <ClCompile Include="Commands.cpp" />
     <ClCompile Include="ConScribeInternals.cpp" />
     <ClCompile Include="dllmain.c">
@@ -160,18 +181,22 @@
     <ClInclude Include="..\obse\obse\Script.h" />
     <ClInclude Include="..\obse\obse\ScriptUtils.h" />
     <ClInclude Include="..\obse\obse\Utilities.h" />
-    <ClInclude Include="..\[Libraries]\INI Manager\INIManager.h" />
+    <ClInclude Include="..\[Libraries]\SME Sundries\INIManager.h" />
+    <ClInclude Include="..\[Libraries]\SME Sundries\MemoryHandler.h" />
+    <ClInclude Include="..\[Libraries]\SME Sundries\MiscGunk.h" />
+    <ClInclude Include="..\[Libraries]\SME Sundries\SME_Prefix.h" />
+    <ClInclude Include="..\[Libraries]\SME Sundries\StringHelpers.h" />
     <ClInclude Include="Commands.h" />
     <ClInclude Include="ConScribeInternals.h" />
     <ClInclude Include="..\Construction Set Extender\CSEInterfaceAPI.h" />
-    <ClInclude Include="resource.h" />
+    <ClInclude Include="VersionInfo.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\obse\obse\GameRTTI_1_2_416.inl" />
     <None Include="exports.def" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="ConScribe.rc" />
+    <ResourceCompile Include="VersionInfo.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -5,6 +5,7 @@
 #include <vector>
 #include <fstream>
 #include <map>
+
 #include "windows.h"
 #include "time.h"
 #include "intrin.h"
@@ -14,152 +15,174 @@
 #include "obse/ScriptUtils.h"
 #include "obse/GameData.h"
 #include "obse_common/SafeWrite.h"
+
 #include "common/IDirectoryIterator.h"
 
-#include "[Libraries]\INI Manager\INIManager.h"
+#include "[Libraries]\SME Sundries\SME_Prefix.h"
+#include "[Libraries]\SME Sundries\INIManager.h"
+#include "[Libraries]\SME Sundries\MemoryHandler.h"
+#include "[Libraries]\SME Sundries\MiscGunk.h"
+#include "[Libraries]\SME Sundries\StringHelpers.h"
+
 #include "Construction Set Extender\CSEInterfaceAPI.h"
 
 using namespace SME;
-using namespace INI;
+using namespace SME::INI;
+using namespace SME::MemoryHandler;
 
-#define SAVE_VERSION									3
-#define MAX_BACKUPS										5
+_DeclareMemHdlr(ConsolePrint, "extracts the sweet nectar");
 
-extern const char*										g_HookMessage;
-extern char												g_Buffer[0x4000];
-extern OBSEScriptInterface*								g_OBSEScriptInterface;
+namespace Interfaces
+{
+	extern PluginHandle						kOBSEPluginHandle;
 
-#if OBLIVION_VERSION == OBLIVION_VERSION_1_2_416
-	const UInt32 kConsolePrintHookAddr = 0x00585D2E;
-	const UInt32 kConsolePrintRetnAddr = 0x00585D36;
-	const UInt32 kConsolePrintCallAddr = 0x00574A80;
-#else
-	#error unsupported oblivion version
-#endif
+	extern OBSEScriptInterface*				kOBSEScript;
+	extern OBSEArrayVarInterface*			kOBSEArrayVar;
+	extern OBSESerializationInterface*		kOBSESerialization;
+	extern OBSEStringVarInterface*			kOBSEStringVar;
+	extern OBSEMessagingInterface*			kOBSEMessaging;
+	extern CSEIntelliSenseInterface*		kCSEIntelliSense;
+	extern CSEConsoleInterface*				kCSEConsole;
+}
 
-void ConsolePrintHook(void);
-
+namespace Settings
+{
+	extern INISetting		kScribeMode;
+	extern INISetting		kIncludes;
+	extern INISetting		kExcludes;
+	extern INISetting		kTimeFormat;
+	extern INISetting		kLogBackups;
+	extern INISetting		kRootDirectory;
+	extern INISetting		kSaveDataToCoSave;
+}
 
 class ConScribeINIManager : public INIManager
 {
 public:
-	void					Initialize();
+	void								Initialize(const char* INIPath, void* Paramenter);
+
+	static ConScribeINIManager			Instance;
 };
-
-extern ConScribeINIManager*		g_INIManager;
-
 
 class ConScribeLog 
 {
 protected:
 	std::fstream										FileStream;
 	char*												FilePath;
+	
+	ConScribeLog();
 public:
-	enum												OpenMode
-															{
-																e_OutAp = 0,
-																e_Out,
-																e_In
-															};
-	virtual												~ConScribeLog();
+	enum
+	{
+		kOpenMode_Append = 0,
+		kOpenMode_Write,
+		kOpenMode_Read
+	};
 
-	ConScribeLog(const char* FileName, OpenMode Mode);
+	typedef std::vector<std::string>					LogContentsT;
 
-	void												Open(const char* FileName, OpenMode Mode);
+	ConScribeLog(const char* FileName, UInt32 Mode);
+	virtual ~ConScribeLog();
+
+
+	void												Open(const char* FileName, UInt32 Mode);
 	void												Close(void);
+
 	virtual void										WriteOutput(const char* Message);
-	void												AppendLoadHeader(void);
+	virtual void										AppendLoadHeader(void);
+
 	virtual void										HandleLoadCallback(void) { return; }
-	void												ReadAllLines(std::vector<std::string>& LogContents);
+
 	UInt32												GetLineCount(void);
+	UInt32												ReadAllLines(LogContentsT* LogContents = NULL);		// returns line count
 	void												DeleteSlice(UInt32 Lower, UInt32 Upper);
+
+	static UInt32										kSessionCounter;
 };
 
 class ConsoleLog : public ConScribeLog
 {
+	UInt32												GetSubstringHits(std::string Source, std::string SubstringChain);
 public:
-	ConsoleLog(const char* FileName, OpenMode Mode)	: ConScribeLog(FileName, Mode) {}
+	ConsoleLog();
+	ConsoleLog(const char* FileName, UInt32 Mode);
+	virtual ~ConsoleLog();
 
-	void												WriteOutput(const char* Message);	
-	void												HandleLoadCallback(void);
-};
+	virtual void										WriteOutput(const char* Message);	
+	virtual void										HandleLoadCallback(void);
 
-extern ConScribeLog*									g_ConsoleLog;
-
-class LogData
-{
-public:
-	int													DefaultLog;
-	std::vector<std::string>							RegisteredLogs;
-
-	LogData();
+	static ConsoleLog									Instance;
 };
 
 class LogManager
 {
-	static LogManager*									Singleton;
-	void												SetDefaultLog(const char* ModName, UInt32 Idx);		// used by serialization code
 public:
-	static LogManager*									GetSingleton();
+	typedef std::vector<std::string>				LogNameTableT;
 
-	static enum											ScribeOp
-															{
-																e_Script,
-																e_Default,
-																e_Mod
-															};
+	enum
+	{
+		kScribe_ScriptLog	= 0,
+		kScribe_DefaultLog,
+		kScribe_ModLog
+	};
 
-	typedef std::map<std::string, LogData*>				_LogDB;
-	_LogDB												LogDB;
+	enum
+	{
+		kHouseKeeping_BackupLogs	= 0,
+		kHouseKeeping_AppendHeaders
+	};
+private:
+	struct LogData
+	{
+		int												DefaultLogIndex;
+		LogNameTableT									RegisteredLogs;
 
-	void												DumpDatabase(void);
-	void												PurgeDatabase(void);
+		LogData();
+	};
+
+	enum
+	{
+		kSaveVersion		= 3,
+		kMaxBackups			= 5,
+	};
+
+	typedef std::map<std::string, LogData*>				LogDataTableT;
+	LogDataTableT										LogDataStore;
 
 	bool												IsModRegistered(const char* ModName);
+	void												SetDefaultLog(const char* ModName, UInt32 Idx);		// used by serialization code
+
+	void												PerformHouseKeeping(const char* DirectoryPath, const char* File, UInt32 Operation);
+	void												BackupLog(std::string FilePath, std::string FileName);
+	
+	void												Dump(void);
+public:	
+	bool												Initialize(void);
+
+	void												Purge(void);
+
 	bool												IsLogRegistered(const char* ModName, const char* LogName);
 	bool												IsLogRegistered(const char* LogName);
 
 	void												RegisterMod(const char* ModName);
-	void												SetDefaultLog(const char* ModName, const char* LogName);
-	const char*											GetDefaultLog(const char* ModName);
+	void												GetRegisteredLogs(const char* ModName, LogNameTableT& Out);
+
 	void												RegisterLog(const char* ModName, const char* LogName);
-	void												UnregisterLog(const char* ModName, const char* LogName);
-	void												UnregisterLog(const char* ModName);		// clears log table
+	void												UnregisterLog(const char* ModName, const char* LogName);		// pass LogName = NULL to clear log table
+
+	const char*											GetDefaultLog(const char* ModName);
+	void												SetDefaultLog(const char* ModName, const char* LogName);
+
 	void												ScribeToLog(const char* Message, const char* ModName, UInt32 RefID, UInt32 PrintC);	
 	void												DeleteSliceFromLog(const char* ModName, const char* LogName, UInt32 Lower, UInt32 Upper);
 	int													GetLogLineCount(const char* ModName, const char* LogName);
 
-	LogData*											GetModLogData(const char* ModName);
+	void												HandleGameLoad(OBSESerializationInterface* Interface);
+	void												HandleGameSave(OBSESerializationInterface* Interface);	
 
-	void												DoLoadCallback(OBSESerializationInterface* Interface);
-	void												DoSaveCallback(OBSESerializationInterface* Interface);	
-
-	void												ConvertDeprecatedRecordCSRB(std::string Record);
+	static LogManager									Instance;
 };
 
-
-
-enum													HouseKeepingOps
-															{
-																e_BackupLogs,
-																e_AppendHeaders
-															};
-
-
-
-std::string												GetTimeString(void);
-UInt32													GetInString(std::string String1, std::string String2);
-void													LogWinAPIErrorMessage(DWORD ErrorID);
-
-bool													CreateLogDirectories(void);
-
-void													PerformHouseKeeping(const char* DirectoryPath, const char* File, HouseKeepingOps Operation);
-void													DoBackup(std::string FilePath, std::string FileName);
-void													AppendHeader(std::string FilePath);
-
-extern ConScribeLog*									g_ConsoleLog;
-extern UInt32											g_SessionCount;
-extern OBSEArrayVarInterface*							g_arrayIntfc;
-
-typedef OBSEArrayVarInterface::Array					OBSEArray;
-typedef OBSEArrayVarInterface::Element					OBSEElement;
+#define LOGDIR					"ConScribe Logs\\"
+#define LOGDIR_PERMOD			"ConScribe Logs\\Per-Mod\\"
+#define LOGDIR_PERSCRIPT		"ConScribe Logs\\Per-Script\\"

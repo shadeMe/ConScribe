@@ -57,11 +57,20 @@
       <Filter>OBSE</Filter>
     </ClCompile>
     <ClCompile Include="Main.cpp" />
-    <ClCompile Include="..\[Libraries]\INI Manager\INIManager.cpp">
-      <Filter>Utilities</Filter>
-    </ClCompile>
     <ClCompile Include="..\obse\obse\GameExtraData.cpp">
       <Filter>OBSE</Filter>
+    </ClCompile>
+    <ClCompile Include="..\[Libraries]\SME Sundries\INIManager.cpp">
+      <Filter>Utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="..\[Libraries]\SME Sundries\MemoryHandler.cpp">
+      <Filter>Utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="..\[Libraries]\SME Sundries\MiscGunk.cpp">
+      <Filter>Utilities</Filter>
+    </ClCompile>
+    <ClCompile Include="..\[Libraries]\SME Sundries\StringHelpers.cpp">
+      <Filter>Utilities</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -119,14 +128,26 @@
     <ClInclude Include="Commands.h" />
     <ClInclude Include="ConScribeInternals.h" />
     <ClInclude Include="..\Construction Set Extender\CSEInterfaceAPI.h" />
-    <ClInclude Include="resource.h">
-      <Filter>Resources</Filter>
-    </ClInclude>
-    <ClInclude Include="..\[Libraries]\INI Manager\INIManager.h">
-      <Filter>Utilities</Filter>
-    </ClInclude>
     <ClInclude Include="..\obse\obse\GameExtraData.h">
       <Filter>OBSE</Filter>
+    </ClInclude>
+    <ClInclude Include="VersionInfo.h">
+      <Filter>Resources</Filter>
+    </ClInclude>
+    <ClInclude Include="..\[Libraries]\SME Sundries\INIManager.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="..\[Libraries]\SME Sundries\MemoryHandler.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="..\[Libraries]\SME Sundries\MiscGunk.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="..\[Libraries]\SME Sundries\SME_Prefix.h">
+      <Filter>Utilities</Filter>
+    </ClInclude>
+    <ClInclude Include="..\[Libraries]\SME Sundries\StringHelpers.h">
+      <Filter>Utilities</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -138,7 +159,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="ConScribe.rc">
+    <ResourceCompile Include="VersionInfo.rc">
       <Filter>Resources</Filter>
     </ResourceCompile>
   </ItemGroup>
