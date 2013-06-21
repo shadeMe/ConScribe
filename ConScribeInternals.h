@@ -24,6 +24,8 @@
 #include "[Libraries]\SME Sundries\MiscGunk.h"
 #include "[Libraries]\SME Sundries\StringHelpers.h"
 
+#define CSEAPI_NO_CODA		1
+
 #include "Construction Set Extender\CSEInterfaceAPI.h"
 
 using namespace SME;
