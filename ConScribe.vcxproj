@@ -188,7 +188,6 @@
     <ClInclude Include="..\[Libraries]\SME Sundries\StringHelpers.h" />
     <ClInclude Include="Commands.h" />
     <ClInclude Include="ConScribeInternals.h" />
-    <ClInclude Include="..\Construction Set Extender\CSEInterfaceAPI.h" />
     <ClInclude Include="VersionInfo.h" />
   </ItemGroup>
   <ItemGroup>

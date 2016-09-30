@@ -127,7 +127,6 @@
     </ClInclude>
     <ClInclude Include="Commands.h" />
     <ClInclude Include="ConScribeInternals.h" />
-    <ClInclude Include="..\Construction Set Extender\CSEInterfaceAPI.h" />
     <ClInclude Include="..\obse\obse\GameExtraData.h">
       <Filter>OBSE</Filter>
     </ClInclude>
